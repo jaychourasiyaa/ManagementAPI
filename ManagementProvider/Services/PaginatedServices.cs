@@ -1,11 +1,14 @@
 ﻿using Employee_Role;
 using ManagementAPI.Contract.Dtos;
+using ManagementAPI.Contract.Dtos.EmployeeDtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Provider.Database;
 using ManagementAPIDepartment;
+using ManagementAPIEmployee;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -17,15 +20,15 @@ namespace ManagementAPI.Provider.Services
 {
     public class PaginatedServices : IPaginatedService
     {
-        private  readonly dbContext _dbContext;
+        private readonly dbContext _dbContext;
         public PaginatedServices(dbContext db)
         {
             _dbContext = db;
         }
-      
-        
-        public IQueryable<EmployeeDto>? ApplyFilering( IQueryable<EmployeeDto>? employee , string ? filterOn, 
-            string ?filterQuery)
+
+
+        public IQueryable<GetEmployeeDto>? ApplyFilering(IQueryable<GetEmployeeDto>? employee, string? filterOn,
+            string? filterQuery)
         {
             if (string.IsNullOrEmpty(filterOn) == false &&
                     string.IsNullOrEmpty(filterQuery) == false)
@@ -68,21 +71,21 @@ namespace ManagementAPI.Provider.Services
                             .Cast<EmployeeRole>()
                             .FirstOrDefault(role => role.ToString().ToLowerInvariant() == normalizedFilterQuery);
 
-                        if (matchingRole != default(EmployeeRole))
-                        {
-                            employee = employee.Where(e => e.Role == matchingRole);
-                        }
-                        else
+/*                        if (matchingRole == EmployeeRole.Employee)
+                        {*/
+                           employee = employee.Where(e => e.Role == matchingRole);
+                       /* }
+                        else if(matchingRole == EmployeeRole.) {
                         {
                             throw new Exception("Invalid role name specified.");
-                        }
+                        }*/
                     }
                 }
             }
             return employee;
         }
 
-        public IQueryable<EmployeeDto>? ApplySorting( IQueryable<EmployeeDto>? employee , string? SortBy,
+        public IQueryable<GetEmployeeDto>? ApplySorting(IQueryable<GetEmployeeDto>? employee, string? SortBy,
             bool IsAscending)
         {
             if (string.IsNullOrEmpty(SortBy) == false)
@@ -99,11 +102,11 @@ namespace ManagementAPI.Provider.Services
                     employee.OrderByDescending(e => e.CreatedOn);
 
                 }
-                if (SortBy.Equals("UpdatedOn", StringComparison.OrdinalIgnoreCase))
+                /*if (SortBy.Equals("UpdatedOn", StringComparison.OrdinalIgnoreCase))
                 {
                     employee = IsAscending ? employee.OrderBy(e => e.UpdatedOn) :
                         employee.OrderByDescending(e => e.UpdatedOn);
-                }
+                }*/
                 if (SortBy.Equals("Salary", StringComparison.OrdinalIgnoreCase))
                 {
                     employee = IsAscending ? employee.OrderBy(e => e.Salary) :
@@ -114,11 +117,11 @@ namespace ManagementAPI.Provider.Services
                     employee = IsAscending ? employee.OrderBy(e => e.CreatedBy) :
                         employee.OrderByDescending(e => e.CreatedBy);
                 }
-                if (SortBy.Equals("UpdatedBy", StringComparison.OrdinalIgnoreCase))
+                /*if (SortBy.Equals("UpdatedBy", StringComparison.OrdinalIgnoreCase))
                 {
                     employee = IsAscending ? employee.OrderBy(e => e.UpdatedBy) :
                         employee.OrderByDescending(e => e.UpdatedBy);
-                }
+                }*/
                 if (SortBy.Equals("Role", StringComparison.OrdinalIgnoreCase))
                 {
                     employee = IsAscending ? employee.OrderBy(e => e.Role) :
@@ -144,39 +147,64 @@ namespace ManagementAPI.Provider.Services
                     employee = IsAscending ? employee.OrderBy(e => e.AdminId) :
                           employee.OrderByDescending(e => e.AdminId);
                 }
-               /* if (SortBy.Equals("IsActive", StringComparison.OrdinalIgnoreCase))
-                {
-                    employee = IsAscending ? employee.OrderBy(e => e.IsActive) :
-                          employee.OrderByDescending(e => e.IsActive);
-                }*/
+                /* if (SortBy.Equals("IsActive", StringComparison.OrdinalIgnoreCase))
+                 {
+                     employee = IsAscending ? employee.OrderBy(e => e.IsActive) :
+                           employee.OrderByDescending(e => e.IsActive);
+                 }*/
             }
             return employee;
         }
-       
-        public IQueryable< DepartmentDtos?> ApplySortingOnDepartment( IQueryable<DepartmentDtos?> department ,
-            string ? SortBy , bool IsAscending)
+
+        public IQueryable<DepartmentDtos?> ApplyFileringDepartment(IQueryable<DepartmentDtos?> department, string? filterOn, string? filterQuery)
         {
-            if (string.IsNullOrEmpty(SortBy) ==false)
+            if (string.IsNullOrEmpty(filterOn) == false &&
+                    string.IsNullOrEmpty(filterQuery) == false)
             {
+                // filer according to name or subpart of name
+                if (filterOn.Equals("Name", StringComparison.OrdinalIgnoreCase))
+                {
+                    department = department.Where(e => e.Name.Contains(filterQuery));
+                }
+
+
+            }
+            return department;
+        }
+        public IQueryable<DepartmentDtos?> ApplySortingOnDepartment(IQueryable<DepartmentDtos?> department,
+            string? SortBy, bool IsAscending)
+        {
+            if (string.IsNullOrEmpty(SortBy) == false)
+            {
+                if( SortBy.Equals( "Name" , StringComparison.OrdinalIgnoreCase))
+                {
+                    department = IsAscending ? department.OrderBy(e => e.Name) :
+                        department.OrderByDescending(e => e.Name);
+                }
                 if (SortBy.Equals("CreatedOn", StringComparison.OrdinalIgnoreCase))
                 {
                     department = IsAscending ? department.OrderBy(e => e.CreatedOn) :
                         department.OrderByDescending(e => e.CreatedOn);
                 }
-                if (SortBy.Equals("UpdatedOn", StringComparison.OrdinalIgnoreCase))
+                /*if (SortBy.Equals("UpdatedOn", StringComparison.OrdinalIgnoreCase))
 
                 {
                     department = IsAscending ? department.OrderBy(e => e.UpdatedOn) :
                         department.OrderByDescending(e => e.UpdatedOn);
-                }
+                }*/
             }
             return department;
         }
-        
 
-        public async Task<List<EmployeeDto>> GetAllEmployee(PaginatedGetDto dto)
+
+        public async Task<List<GetEmployeeDto>> GetAllEmployee(PaginatedGetDto dto)
         {
-            string? filterOn = dto.filterOn;
+            string? filterOn = "";
+            if (dto.filterOn == null || dto.filterOn == string.Empty)
+            {
+                filterOn = "Name";
+            }
+            else filterOn = dto.filterOn;
             string? filterQuery = dto.filterQuery;
             string? SortBy = dto.SortBy;
             bool IsAscending = dto.IsAscending;
@@ -189,7 +217,7 @@ namespace ManagementAPI.Provider.Services
                     .Include(e => e.Department)
                     .Include(e => e.Admin).
                     Where(e => e.IsActive == true)
-                    .Select(e => new EmployeeDto
+                    .Select(e => new GetEmployeeDto
                     {
                         Id = e.Id,
                         Name = e.Name,
@@ -200,25 +228,24 @@ namespace ManagementAPI.Provider.Services
                         DepartmentName = e.Department != null ? e.Department.Name : null,
                         AdminName = e.Admin != null ? e.Admin.Name : null,
                         CreatedOn = e.CreatedOn,
-                        UpdatedOn = e.UpdatedOn,
-                        IsActive = e.IsActive,
-                        CreatedBy = e.CreatedBy,
-                        UpdatedBy = e.UpdatedBy,
+                        CreatedBy = e.Creator.Name
+                       
+                      
 
 
                     }).AsQueryable();
 
                 //
                 // Filtering
-                employee = ApplyFilering( employee ,filterOn, filterQuery);
+                employee = ApplyFilering(employee, filterOn, filterQuery);
                 //
 
                 //Sorting 
-                employee = ApplySorting ( employee ,SortBy, IsAscending);
+                employee = ApplySorting(employee, SortBy, IsAscending);
                 //
 
                 //Pagination
-                var  skipResults = (pageNumber - 1) * pageSize;
+                var skipResults = (pageNumber - 1) * pageSize;
                 //
 
                 return await employee.Skip(skipResults).Take(pageSize).ToListAsync();
@@ -229,18 +256,16 @@ namespace ManagementAPI.Provider.Services
             }
 
         }
-       /* public  async Task<int> GetEmployeeCount()
+        
+        public async Task<List<DepartmentDtos>?> GetAllDepartment(PaginatedGetDto dto)
         {
-            int count =  _dbContext.Employees.Count();
-            return count;
-        }
-        public async Task<int> GetDepartmentCount()
-        {
-            int count = _dbContext.Employees.Count();
-            return count;
-        }*/
-        public async Task<List<DepartmentDtos>?> GetAllDepartment(PaginatedGetDepartmentDto dto)
-        {
+            string? filterOn = "";
+            if (dto.filterOn == "" || dto.filterOn == null || dto.filterOn == string.Empty )
+            {
+                filterOn = "Name";
+            }
+            else filterOn = dto.filterOn;
+            string? filterQuery = dto.filterQuery;
             string? SortBy = dto.SortBy;
             bool IsAscending = dto.IsAscending;
             int pageNumber = dto.pageNumber == 0 ? 1 : dto.pageNumber;
@@ -255,15 +280,16 @@ namespace ManagementAPI.Provider.Services
                      CreatedOn = d.CreatedOn,
                      UpdatedOn = d.UpdatedOn
                  }).AsQueryable();
-      
-           
+
+            // filtering
+            department = ApplyFileringDepartment(department, filterOn, filterQuery);
             // Apply Sorting 
             department = ApplySortingOnDepartment( department , SortBy , IsAscending);
             // Applying Pagination
             var skipResult = ( pageNumber - 1) * pageSize;
             return await department.Skip(skipResult).Take(pageSize).ToListAsync();
         }
-        public async Task<List<EmployeeDto>?> GetAllManagers(PaginatedGetDto dto)
+        public async Task<List<GetEmployeeDto>?> GetAllManagers(PaginatedGetDto dto)
         {
             string? filterOn = dto.filterOn;
             string? filterQuery = dto.filterQuery;
@@ -276,7 +302,7 @@ namespace ManagementAPI.Provider.Services
             var managers =  _dbContext.Employees
                 .Where(e => e.IsActive && _dbContext.Employees
                 .Any(emp => emp.AdminId == e.Id))
-                .Select(e => new EmployeeDto
+                .Select(e => new GetEmployeeDto
                 {
                     Id = e.Id,
                     Name = e.Name,
@@ -285,10 +311,9 @@ namespace ManagementAPI.Provider.Services
                     AdminName = e.Admin.Name,
                     DepartmentName = e.Department.Name,
                     Role = e.Role,
-                    CreatedBy = e.CreatedBy,
+                  /*  CreatedBy = e.CreatedBy,*/
                     CreatedOn = e.CreatedOn,
-                    UpdatedBy = e.UpdatedBy,
-                    UpdatedOn = e.UpdatedOn
+                  
                 }).Distinct().AsQueryable();
             //filtering  
             managers = ApplyFilering( managers, filterOn, filterQuery);

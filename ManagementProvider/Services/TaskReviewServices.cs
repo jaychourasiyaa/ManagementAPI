@@ -10,77 +10,113 @@ using ManagementAPI.Contract.Dtos;
 using System.ComponentModel;
 using Microsoft.EntityFrameworkCore;
 using ManagementAPIEmployee;
+using Employee_Role;
+using Microsoft.Identity.Client;
+using Taask_status;
 namespace ManagementAPI.Provider.Services
 {
     public class TaskReviewServices : ITaskReviewServices
     {
         private readonly dbContext _dbContext;
-       
+
         public TaskReviewServices(dbContext db) { _dbContext = db; }
-        public List<GetTaskReviewDto> GetTaskReview( )
+        public async Task<List<GetTaskReviewDto>?> GetTaskReview(EmployeeRole Role, int AccessingId)
         {
 
-
-             /*public int Id { get; set; }
-        public string Name { get; set; }
-        public string Assigned_From { get; set; }
-        public string Assigned_To { get; set; }
-        public int AssignedById { get; set; }
-        public int AssignedToId { get; set; }
-        public DateTime CreatedOn { get; set; }
-        public string Description { get; set; }
-        public TaskStatus Status { get; set; }
-        public int ReviewById { get; set; }
-        public string ReviewName
-        {
-            get; set;
-        }*/
-            var tasksreview = _dbContext.TasksReviews.Include(e => e.Tasks).Include(e => e.Reviewer)
-                                .Select(e => new GetTaskReviewDto
-                                {
-                                    Id = e.Id,
-                                    TaskId = e.Tasks.Id,
-                                    ReviewerName = e.Reviewer.Name,
-                                    Name = e.Tasks.Name,
-                                    Assigned_From = e.Tasks.AssignedBy.Name,
-                                    Assigned_To = e.Tasks.AssignedTo.Name,
-                                    AssignedById = e.Tasks.AssignedById,
-                                    AssignedToId = e.Tasks.AssignedToId,
-                                    Description = e.Tasks.Description,
-                                    CreatedOn = e.CreatedOn,
-                                    Comments = e.Comments,
-                                    Status = e.Tasks.Status,
-                                }).ToList();
-            return tasksreview;
-        }
-       
-        public int AddTaskReview(AddTaskReviewDto tasksReviewDtos  )
-        {
-            var tasksReview = new TasksReview
+            try
             {
-                TasksId = tasksReviewDtos.TasksId,
-                ReviewBy = tasksReviewDtos.ReviewById,
-                Comments = tasksReviewDtos.Comments,
-            };
-            _dbContext.Add(tasksReview);
-            _dbContext.SaveChanges();
-            return tasksReview.Id;
+                // getting list of reviews for a task 
+                var tasksreview =   _dbContext.TasksReviews.Include( e=> e.Reviewer).Include(e => e.Tasks)
+                                    .Select(e => new GetTaskReviewDto
+                                    {
+                                        Id = e.Id,
+                                        TaskId = e.Tasks.Id,
+                                        ReviewById = e.Reviewer.Id,
+                                        ReviewerName = e.Reviewer.Name,
+                                        Comments = e.Comments,
+                                        AssignedToId = e.Tasks.AssignedToId,
+                                        AssignedById = e.Tasks.AssignedById,    
+                                        
+                                       
+                                    }).AsQueryable();
+
+                // if employee role is  not superadmin filtering tasks
+                if (Role != EmployeeRole.SuperAdmin)
+                {
+                    tasksreview = tasksreview.Where(t => t.AssignedToId == AccessingId || t.AssignedToId == AccessingId);
+                }
+                return await tasksreview.ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
         }
-        public TasksReview UpdateTaskReview(AddTaskReviewDto tasksReviewDtos,int id)
+
+        public async Task<int?> AddTaskReview(AddTaskReviewDto tasksReviewDtos, EmployeeRole Role, int accessingId)
         {
-            var tasksReview  = _dbContext.TasksReviews.Find(id);
-            tasksReview.ReviewBy = tasksReviewDtos.ReviewById;    
-            tasksReview.UpdatedOn = DateTime.Now;
-            tasksReview.Comments = tasksReviewDtos.Comments;
-            _dbContext.SaveChanges();
-            return tasksReview;
+            try
+            {
+                // checking tasks to be reviewed exists or not
+                var tasks = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == tasksReviewDtos.TasksId);
+
+                if (tasks == null || tasks.IsActive == false) return -1;
+
+                // only legit person can reveiw the task ,whether a superadmin or the task assigner or task assigni
+                if (Role != EmployeeRole.SuperAdmin)
+                {
+                    if (tasks.AssignedToId != accessingId && tasks.AssignedById != accessingId)
+                    {
+                        return -2;
+                    }
+                }
+                var tasksReview = new TasksReview
+                {
+                    TasksId = tasksReviewDtos.TasksId,
+                    ReviewBy = accessingId,
+                    Comments = tasksReviewDtos.Comments,
+                    CreatedBy = accessingId,
+                    
+                };
+                await _dbContext.AddAsync(tasksReview);
+                await _dbContext.SaveChangesAsync();
+                return tasksReview.Id;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
         }
-        public bool DeleteTaskReview( int id)
+        
+        public async Task<bool> DeleteTaskReview(int aceessingId , int reviewId)
         {
-            var tasksReviews = _dbContext.TasksReviews.Find( id);
-            _dbContext.TasksReviews.Remove(tasksReviews);
-            _dbContext.SaveChanges();
-            return true;
+            try
+            {
+                var typeess = TasksStatus.Completed.ToString();
+                Console.WriteLine(typeess);
+                var employee = await _dbContext.Employees.FirstOrDefaultAsync(e => e.Id == aceessingId);
+                if (employee == null || employee.IsActive == false)
+                {
+                    return false;
+                }
+                var taskReview = _dbContext.TasksReviews.Include(t => t.Tasks).FirstOrDefault(t => t.Id == reviewId);
+                if (taskReview == null) return false;
+                if (employee.Role != EmployeeRole.SuperAdmin)
+                {
+                    if (taskReview.Tasks.AssignedById != aceessingId && taskReview.Tasks.AssignedToId != aceessingId)
+                    {
+                        return false;
+                    }
+                }
+                 _dbContext.TasksReviews.Remove(taskReview);
+                await _dbContext.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
         }
+
     }
 }

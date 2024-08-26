@@ -1,4 +1,5 @@
 ﻿using ManagementAPI.Contract.Dtos;
+using ManagementAPI.Contract.Dtos.EmployeeDtos;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,15 +8,15 @@ using System.Threading.Tasks;
 
 namespace ManagementAPI.Contract.Interfaces
 {
-   public interface IPaginatedService
+    public interface IPaginatedService
     {
 
-        public Task<List<DepartmentDtos>?> GetAllDepartment(PaginatedGetDepartmentDto dto);
+        public Task<List<DepartmentDtos>?> GetAllDepartment(PaginatedGetDto dto);
 
-        public Task<List<EmployeeDto>> GetAllEmployee(PaginatedGetDto dto);
+        public Task<List<GetEmployeeDto>> GetAllEmployee(PaginatedGetDto dto);
         /*public  Task<int> GetEmployeeCount();
         public  Task<int> GetDepartmentCount()*/
-        public Task<List<EmployeeDto>?> GetAllManagers(PaginatedGetDto dto);
+        public Task<List<GetEmployeeDto>?> GetAllManagers(PaginatedGetDto dto);
 
 
 

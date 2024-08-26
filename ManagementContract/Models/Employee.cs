@@ -23,11 +23,14 @@ public class Employee : BaseEntity
    
     public required string Username { get; set; }
     public required string Password { get; set; }
-   
-   
+
+
+    public Employee Creator { get; set; }
+
+    [ForeignKey(nameof(CreatedBy))]
     
     public Employee Admin { get; set; }
-    [ForeignKey(nameof(AdminId))]
+    [ForeignKey(nameof(AdminId))] 
     public int? AdminId { get; set; } // Manager
     
     public Department Department { get; set; }

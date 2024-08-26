@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ManagementAPI.Contract.Dtos
+/*namespace ManagementAPI.Contract.Dtos
 {
    public class AttendenceDtos
     {
@@ -19,3 +19,4 @@ namespace ManagementAPI.Contract.Dtos
         // make add attendence dtos seprate which only take employee id as input
     }
 }
+*/

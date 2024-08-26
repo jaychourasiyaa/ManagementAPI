@@ -19,5 +19,6 @@ namespace ManagementAPI.Contract.Models
         public int EmployeeID { get; set; }
         [ForeignKey(nameof(EmployeeID))]
         public Employee Employee { get; set; }
+        public bool IsActive { get; set; } = true;
     }
 }

@@ -38,6 +38,7 @@ namespace ManagementAPI.Provider.Services
         }
         public async Task<List<DateTime>> getById(int id)
         {
+            // getting list of dates on which employee has taken advance 
             try
             {
                 bool check = await CheckEmployee(id);
@@ -59,6 +60,7 @@ namespace ManagementAPI.Provider.Services
 
             try
             {
+                //check if employee exists or not
                 bool check = await CheckEmployee(dtos.EmployeeId);
                 if (!check)
                 {
@@ -69,8 +71,11 @@ namespace ManagementAPI.Provider.Services
                     && e.month == DateTime.Now.Month
                     && e.year == DateTime.Now.Year).FirstOrDefaultAsync();
 
+                // if already taken salary advance for this month returning
+
                 if (alreadyTaken != null) return -2;
 
+                // if not taken giving them advance
                 var salary = new Salary { EmployeeId = dtos.EmployeeId };
                 _dbContext.Salaries.Add(salary);
                 _dbContext.SaveChanges();

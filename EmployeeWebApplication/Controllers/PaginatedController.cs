@@ -1,4 +1,5 @@
 ﻿using ManagementAPI.Contract.Dtos;
+using ManagementAPI.Contract.Dtos.EmployeeDtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Responses;
 using ManagementAPI.Provider.Services;
@@ -22,45 +23,16 @@ namespace ManagementAPI.Controllers
 
 
 
-        /*[HttpGet]
-        public async Task<ActionResult<ApiRespones<int>>> GetCount()
-        {
-            var response = new ApiRespones<int>();
-            try
-            {
-                var count = paginatedServices.GetEmployeeCount();
-                return Ok(count);
-            }
-            catch (Exception ex)
-            {
-                response.Success = false;
-                response.Message = ex.Message;
-                return BadRequest(response);
-            }*/
-        /* [HttpGet]
-         public async Task<ActionResult<ApiRespones<int>>> GetDeptCount()
-         {
-             var response = new ApiRespones<int>();
-             try
-             {
-                 var count = paginatedServices.GetDepartmentCount();
-                 return Ok(count);
-             }
-             catch (Exception ex)
-             {
-                 response.Success = false;
-                 response.Message = ex.Message;
-                 return BadRequest(response);
-             }
-         }*/
+        
+         
         //Getting details of all Employees
-        [HttpPost ( "GetEmployees")]
-        public async Task<ActionResult<ApiRespones<List<EmployeeDto>?>>> Get([FromBody] PaginatedGetDto dto)
+        /*[HttpPost ( "GetEmployees")]
+        public async Task<ActionResult<PaginatedApiRespones<List<GetEmployeeDto>?>>> Get([FromBody] PaginatedGetDto dto)
         {
-            var response = new ApiRespones<List<EmployeeDto?>>();
+            var response = new PaginatedApiRespones<List<GetEmployeeDto?>>();
             try
             {
-                List<EmployeeDto?> employees = await paginatedServices.GetAllEmployee(dto);
+                List<GetEmployeeDto?> employees = await paginatedServices.GetAllEmployee(dto);
 
                 if (employees == null)
                 {
@@ -82,9 +54,9 @@ namespace ManagementAPI.Controllers
             }
         }
         [HttpPost ("GetDepartment")]
-        public async Task<ActionResult<ApiRespones<List<DepartmentDtos>?>>> GetDepartment(PaginatedGetDepartmentDto dto)
+        public async Task<ActionResult<PaginatedApiRespones<List<DepartmentDtos>?>>> GetDepartment(PaginatedGetDto dto)
         {
-            var response = new ApiRespones<List<DepartmentDtos>?>();
+            var response = new PaginatedApiRespones<List<DepartmentDtos>?>();
             List<DepartmentDtos> ? result = await paginatedServices.GetAllDepartment(dto);
             try
             {
@@ -104,11 +76,11 @@ namespace ManagementAPI.Controllers
                 response.Message = ex.Message; 
                 return BadRequest( response );
             }
-        }
+        }*/
         [HttpPost("GetManagers")]
-        public async Task<ActionResult<ApiRespones<List<EmployeeDto>?>>> GetManagers(PaginatedGetDto dto)
+        public async Task<ActionResult<PaginatedApiRespones<List<GetEmployeeDto>?>>> GetManagers(PaginatedGetDto dto)
         {
-            var respones = new ApiRespones<List<EmployeeDto>?>();
+            var respones = new PaginatedApiRespones<List<GetEmployeeDto>?>();
             try
             {
                 var result = await paginatedServices.GetAllManagers(dto);

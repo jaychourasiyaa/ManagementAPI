@@ -10,10 +10,10 @@ namespace ManagementAPI.Contract.Dtos
     public class CredentialsDto
     {
         [Required (ErrorMessage = "username is required field")]
-        [StringLength (15, MinimumLength = 2, ErrorMessage = "username length must be 2-15")]
+        [StringLength (20, MinimumLength = 2, ErrorMessage = "username length must be greater than 1")]
         public string UserName { get; set; }
-        [Required(ErrorMessage = "username is required field")]
-        [StringLength(15, MinimumLength = 6, ErrorMessage = "password length must be greater than 6")]
+        [Required(ErrorMessage = "Password is required field")]
+        [StringLength(20, MinimumLength = 6, ErrorMessage = "password length must be greater than 6")]
         public string Password { get; set; }    
     }
 }

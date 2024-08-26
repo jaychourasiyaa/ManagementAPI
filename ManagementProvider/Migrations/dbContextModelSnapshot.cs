@@ -46,6 +46,31 @@ namespace ManagementAPI.Provider.Migrations
                     b.ToTable("Attendences");
                 });
 
+            modelBuilder.Entity("ManagementAPI.Contract.Models.Log", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TaskId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("dateTime")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TaskId");
+
+                    b.ToTable("Logs");
+                });
+
             modelBuilder.Entity("ManagementAPI.Contract.Models.Project", b =>
                 {
                     b.Property<int>("Id")
@@ -57,7 +82,7 @@ namespace ManagementAPI.Provider.Migrations
                     b.Property<int>("AssignedById")
                         .HasColumnType("int");
 
-                    b.Property<int>("CreatedBy")
+                    b.Property<int?>("CreatedBy")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedOn")
@@ -95,6 +120,9 @@ namespace ManagementAPI.Provider.Migrations
                     b.Property<int>("ProjectID")
                         .HasColumnType("int");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
                     b.HasKey("EmployeeID", "ProjectID");
 
                     b.HasIndex("ProjectID");
@@ -129,6 +157,34 @@ namespace ManagementAPI.Provider.Migrations
                     b.ToTable("Salaries");
                 });
 
+            modelBuilder.Entity("ManagementAPI.Contract.Models.Sprint", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("Sprints");
+                });
+
             modelBuilder.Entity("ManagementAPIDepartment.Department", b =>
                 {
                     b.Property<int>("Id")
@@ -137,7 +193,7 @@ namespace ManagementAPI.Provider.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("CreatedBy")
+                    b.Property<int?>("CreatedBy")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedOn")
@@ -158,6 +214,8 @@ namespace ManagementAPI.Provider.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedBy");
+
                     b.ToTable("Department");
                 });
 
@@ -172,7 +230,7 @@ namespace ManagementAPI.Provider.Migrations
                     b.Property<int?>("AdminId")
                         .HasColumnType("int");
 
-                    b.Property<int>("CreatedBy")
+                    b.Property<int?>("CreatedBy")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedOn")
@@ -212,6 +270,8 @@ namespace ManagementAPI.Provider.Migrations
 
                     b.HasIndex("AdminId");
 
+                    b.HasIndex("CreatedBy");
+
                     b.HasIndex("DepartmentId");
 
                     b.ToTable("Employees");
@@ -228,10 +288,10 @@ namespace ManagementAPI.Provider.Migrations
                     b.Property<int>("AssignedById")
                         .HasColumnType("int");
 
-                    b.Property<int>("AssignedToId")
+                    b.Property<int?>("AssignedToId")
                         .HasColumnType("int");
 
-                    b.Property<int>("CreatedBy")
+                    b.Property<int?>("CreatedBy")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedOn")
@@ -241,6 +301,9 @@ namespace ManagementAPI.Provider.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("EstimateHours")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -248,10 +311,22 @@ namespace ManagementAPI.Provider.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("ProjectId")
+                    b.Property<int?>("ParentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RemainingHours")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SprintId")
                         .HasColumnType("int");
 
                     b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TaskType")
                         .HasColumnType("int");
 
                     b.Property<int?>("UpdatedBy")
@@ -266,7 +341,11 @@ namespace ManagementAPI.Provider.Migrations
 
                     b.HasIndex("AssignedToId");
 
+                    b.HasIndex("ParentId");
+
                     b.HasIndex("ProjectId");
+
+                    b.HasIndex("SprintId");
 
                     b.ToTable("Taasks");
                 });
@@ -283,7 +362,7 @@ namespace ManagementAPI.Provider.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("CreatedBy")
+                    b.Property<int?>("CreatedBy")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedOn")
@@ -319,6 +398,17 @@ namespace ManagementAPI.Provider.Migrations
                         .IsRequired();
 
                     b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("ManagementAPI.Contract.Models.Log", b =>
+                {
+                    b.HasOne("TasksAPI.Tasks", "Taask")
+                        .WithMany()
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Taask");
                 });
 
             modelBuilder.Entity("ManagementAPI.Contract.Models.Project", b =>
@@ -362,11 +452,36 @@ namespace ManagementAPI.Provider.Migrations
                     b.Navigation("Employee");
                 });
 
+            modelBuilder.Entity("ManagementAPI.Contract.Models.Sprint", b =>
+                {
+                    b.HasOne("ManagementAPI.Contract.Models.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("ManagementAPIDepartment.Department", b =>
+                {
+                    b.HasOne("ManagementAPIEmployee.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy");
+
+                    b.Navigation("Employee");
+                });
+
             modelBuilder.Entity("ManagementAPIEmployee.Employee", b =>
                 {
                     b.HasOne("ManagementAPIEmployee.Employee", "Admin")
                         .WithMany()
                         .HasForeignKey("AdminId");
+
+                    b.HasOne("ManagementAPIEmployee.Employee", "Creator")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ManagementAPIDepartment.Department", "Department")
                         .WithMany()
@@ -374,6 +489,8 @@ namespace ManagementAPI.Provider.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Admin");
+
+                    b.Navigation("Creator");
 
                     b.Navigation("Department");
                 });
@@ -389,18 +506,33 @@ namespace ManagementAPI.Provider.Migrations
                     b.HasOne("ManagementAPIEmployee.Employee", "AssignedTo")
                         .WithMany()
                         .HasForeignKey("AssignedToId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("TasksAPI.Tasks", "Parent")
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ManagementAPI.Contract.Models.Project", "Project")
                         .WithMany("Taskss")
-                        .HasForeignKey("ProjectId");
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ManagementAPI.Contract.Models.Sprint", "Sprint")
+                        .WithMany()
+                        .HasForeignKey("SprintId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("AssignedBy");
 
                     b.Navigation("AssignedTo");
 
+                    b.Navigation("Parent");
+
                     b.Navigation("Project");
+
+                    b.Navigation("Sprint");
                 });
 
             modelBuilder.Entity("TasksReviewAPI.TasksReview", b =>

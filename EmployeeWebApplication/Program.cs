@@ -71,7 +71,7 @@ public class Program
         builder.Services.AddScoped<IProjectServices, ProjectServices>();
         builder.Services.AddScoped<IAuthServices, AuthServices>();
         builder.Services.AddScoped<IPaginatedService,PaginatedServices>();
-    
+        builder.Services.AddScoped<ISprintServices, SprintServices>();
 
 
 

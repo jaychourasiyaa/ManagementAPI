@@ -18,176 +18,509 @@ using Employee_Role;
 using Microsoft.Identity.Client;
 using Taask_status;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using ManagementAPI.Contract.Models;
+using System.Reflection;
+using Microsoft.EntityFrameworkCore.SqlServer.Query.Internal;
 namespace ManagementAPI.Provider.Services
 {
     public class TasksService : ITasksServices
     {
         private readonly dbContext _dbContext;
-         
-        public TasksService( dbContext db)
+
+        public TasksService(dbContext db)
         {
             _dbContext = db;
-            
-        }
-        /* public async Task<int> AssignSelfTask(AddTasksDtos dto, int assignedBy)
-         {
-             var tasks = new Tasks
-             {
-                 Name = dto.Name,
-                 AssignedById = assignedBy,
-                 AssignedToId = assignedBy,
-                 Description = dto.Description,
-                 CreatedBy = assignedBy,
-                 Status = dto.Status
-             };
-             await _dbContext.Taasks.AddAsync(tasks);
-             await _dbContext.SaveChangesAsync();    
-             return tasks.Id;
-         }*/
-        public IQueryable<GetTaskDto>? ApplyFilering(IQueryable<GetTaskDto>? tasks, string filterOn,
-             int assignedTo)
-        {
 
-            if (string.IsNullOrEmpty(filterOn) == false)
+        }
+        public IQueryable<GetTaskDto>? ApplyFiltering(IQueryable<GetTaskDto>? tasks, TaskPaginatedDto PDto,
+            int assingedTo)
+        {
+            string? filterQuery = PDto.filterQuery;
+            List<TasksStatus>? Status = PDto.status;
+            List<TaskTypes>? Type = PDto.type;
+            List<int?>? AssignedTo = PDto.AssignedTo.Where(e => e != 0).ToList();
+            bool assigned = PDto.Assigned;
+            int? SprintId = PDto.SprintId;
+            int? ParentId = PDto.ParentId;
+            DateTime? startDate = PDto.startDate;
+            DateTime? endDate = PDto.endDate;
+
+            if (startDate != null && endDate != null)
             {
-             
-                if (filterOn.Equals("AssignedToId", StringComparison.OrdinalIgnoreCase))
+                tasks = tasks.Where(t => t.CreatedOn >= startDate && t.CreatedOn <= endDate);
+            }
+            if (assigned)
+            {
+                tasks = tasks.Where(t => t.AssignedToId != null);
+            }
+            else
+            {
+                tasks = tasks.Where(t => t.AssignedToId == null);
+            }
+            if (SprintId != null && SprintId != 0)
+            {
+                tasks = tasks.Where(t => t.SprintId == SprintId);
+            }
+            if (ParentId != null && ParentId != 0)
+            {
+                tasks = tasks.Where(t => t.ParentId == ParentId);
+            }
+            if (Status.Count != 0)
+            {
+                tasks = tasks.Where(t => Status.Contains(t.Status));
+
+            }
+
+            if (Type.Count != 0)
+            {
+                tasks = tasks.Where(t => Type.Contains(t.Type));
+            }
+            if (AssignedTo.Count != 0)
+            {
+                tasks = tasks.Where(t => AssignedTo.Contains(t.AssignedToId));
+            }
+            if (string.IsNullOrEmpty(filterQuery) == false)
+            {
+                if (filterQuery != "")
                 {
-                    tasks = tasks.Where(t => t.AssignedById == assignedTo ||t.AssignedToId == assignedTo);
+                    tasks = tasks.Where(e => e.Name.Contains(filterQuery));
                 }
+            }
+            return tasks;
+            ////
+            ////
+            ////
+            /*if (string.IsNullOrEmpty(filterQuery) == false)
+            {
+                // filer according to name or subpart of name
+                if (filterQuery != "" )
+                {
+                    tasks = tasks.Where(e => e.Name.Contains(filterQuery));
+                }
+
+                // filter according to department or subpart of department name
+                *//*else if (filterOn.Equals("Assigned_From", StringComparison.OrdinalIgnoreCase))
+                {
+                    tasks = tasks.Where(e => e.Assigned_From.Contains(filterQuery));
+                }
+                else if (filterOn.Equals("Assigned_To", StringComparison.OrdinalIgnoreCase))
+                {
+                    tasks = tasks.Where(e => e.Assigned_To.Contains(filterQuery));
+                }*//*
+                else if (filterOn.Equals("Status", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Checking value of filterQuery is number or not
+                    if (int.TryParse(filterQuery, out var statusId))
+                    {
+                        // if number then check for valid number from 0-2
+                        if (Enum.IsDefined(typeof(TasksStatus), statusId))
+                        {
+                            var status = (TasksStatus)statusId;
+                            tasks = tasks.Where(e => e.Status == status);
+                        }
+                        else
+                        {
+                            throw new Exception("Invalid Status ID specified.");
+                        }
+                    }
+                    else
+                    {
+                        // Normalize filterQuery to match enum names case insensitively
+                        var normalizedFilterQuery = filterQuery.Trim().ToLowerInvariant();
+
+                        var matchingStatus = Enum.GetValues(typeof(TasksStatus))
+                            .Cast<TasksStatus>()
+                            .FirstOrDefault(role => role.ToString().ToLowerInvariant() == normalizedFilterQuery);
+
+                        *//* if (matchingStatus != default(ProjectStatus))
+                         {*//*
+                        tasks = tasks.Where(e => e.Status == matchingStatus);
+                        *//*}
+                        else
+                        {
+                            throw new Exception("Invalid Status name specified.");
+                        }*//*
+                    }
+                }
+
+
+            }
+            return tasks;*/
+        }
+
+        public IQueryable<GetTaskDto>? ApplySorting(IQueryable<GetTaskDto>? tasks, string? SortBy,
+            bool IsAscending)
+        {
+            if (string.IsNullOrEmpty(SortBy) == false)
+            {
+                if (SortBy.Equals("Name", StringComparison.OrdinalIgnoreCase))
+                {
+
+                    tasks = IsAscending ? tasks.OrderBy(e => e.Name) : tasks.OrderByDescending(e => e.Name);
+
+                }
+                if (SortBy.Equals("CreatedOn", StringComparison.OrdinalIgnoreCase))
+                {
+                    tasks = IsAscending ? tasks.OrderBy(e => e.CreatedOn) :
+                    tasks.OrderByDescending(e => e.CreatedOn);
+
+                }
+                if (SortBy.Equals("Status", StringComparison.OrdinalIgnoreCase))
+                {
+                    tasks = IsAscending ? tasks.OrderBy(e => e.Status) :
+                        tasks.OrderByDescending(e => e.Status);
+                }
+
+                if (SortBy.Equals("Type", StringComparison.OrdinalIgnoreCase))
+                {
+                    tasks = IsAscending ? tasks.OrderBy(e => e.Type) :
+                        tasks.OrderByDescending(e => e.Type);
+                }
+                if (SortBy.Equals("AssignedBy", StringComparison.OrdinalIgnoreCase))
+                {
+                    tasks = IsAscending ? tasks.OrderBy(e => e.AssignedById) :
+                        tasks.OrderByDescending(e => e.AssignedById);
+                }
+                if (SortBy.Equals("AssingedTo", StringComparison.OrdinalIgnoreCase))
+                {
+                    tasks = IsAscending ? tasks.OrderBy(e => e.AssignedToId) :
+                        tasks.OrderByDescending(e => e.AssignedToId);
+                }
+
+
 
             }
             return tasks;
         }
+
         public async Task<bool> CheckManagerOfEmployee(int managerId, int employeeId)
         {
-            var manager = await _dbContext.Employees.Where(e => e.Id == employeeId
-                                                     && e.AdminId == managerId).FirstOrDefaultAsync();
+            var manager = await _dbContext.Employees
+                .Where(e => e.Id == employeeId && e.AdminId == managerId)
+                .FirstOrDefaultAsync();
             if (manager == null) return false;
             return true;
         }
-        public async Task<List<GetTaskDto>> GetAllTasks(EmployeeRole Role, int assignedTo)
-        {
-            var tasks =  _dbContext.Taasks.Include(e => e.AssignedBy).Include(e => e.AssignedTo)
-             .Select(e => new GetTaskDto
-             {
-                Id = e.Id,
-                Name = e.Name,
-                Assigned_From = e.AssignedBy.Name, 
-                Assigned_To = e.AssignedTo.Name,
-                AssignedById = e.AssignedById,
-                AssignedToId = e.AssignedToId,
-                CreatedOn = e.CreatedOn,
-                CreatedBy = e.CreatedBy,
-                UpdatedBy = e.UpdatedBy,
-                UpdatedOn = e.UpdatedOn,
-                Description = e.Description,
-                Status = e.Status,
+        
 
-            }).AsQueryable();
-            if( Role == EmployeeRole.SuperAdmin)
-            { 
-                return await tasks.ToListAsync(); 
-            }
-           tasks = ApplyFilering( tasks, "AssignedToId", assignedTo  );
-            return await tasks.ToListAsync();
-        }
-        public async Task <int> AddTasks(AddTasksDtos dtos, int assignedBy)
+        //Member1 = Task Assigner
+        //Member2 = Task Assignee
+        public async Task<bool> CheckTeamMemberOfProject(int Member1Id, int? Member2Id, int ProjectId)
         {
-            var manager = await _dbContext.Employees.Where(e => e.Id == assignedBy).FirstOrDefaultAsync();
-            if (manager == null || !manager.IsActive) 
-            { 
-                return -1;
-            }
-            var employee = await _dbContext.Employees.Where( e=> e.Id == dtos.AssignedToId).FirstOrDefaultAsync();
-            if (employee == null || !employee.IsActive)
-            { 
-                return -2; 
-            }
-
-            if (manager.Role != EmployeeRole.SuperAdmin && dtos.AssignedToId != assignedBy)
-             {
-                bool check = await CheckManagerOfEmployee(manager.Id, employee.Id);
-                if( !check )
-                {
-                    return -3;
-                }
-               
-             }
-            
-           
-          
-            var tasks = new Tasks
+            try
             {
-                Name = dtos.Name,
-                AssignedById = assignedBy,
-                AssignedToId = dtos.AssignedToId,
-                Description = dtos.Description,
-                Status= dtos.Status,
-                CreatedBy = assignedBy
-            };
-            await _dbContext.Taasks.AddAsync(tasks);
-            await _dbContext.SaveChangesAsync();
-            return tasks.Id;
-        }
-        public async Task<int> UpdateTasks(int status, int id ,int AccessingId)
-        {
-            var tasks = await _dbContext.Taasks.Where(e => e.Id == id).FirstOrDefaultAsync();
-            if (tasks == null || !tasks.IsActive) return -1;
-            if (tasks.AssignedById != AccessingId && tasks.AssignedToId != AccessingId) return -2;
-         
-            if(status<0 ||status >3 ) { return -3; }
-            if (status == 0)
-            {
-                tasks.Status = TasksStatus.Pending;
-            }
-
-            else  if (status == 1)
+                var Member1Exists = await _dbContext.ProjectEmployees.FirstOrDefaultAsync(p => p.ProjectID == ProjectId && p.EmployeeID == Member1Id);
+                if (Member1Exists == null)
                 {
-                    tasks.Status = TasksStatus.Running;
+                    return false;
                 }
-            else   if (status == 2)
+                var Member2Exists = await _dbContext.ProjectEmployees.FirstOrDefaultAsync(p => p.ProjectID == ProjectId && p.EmployeeID == Member2Id);
+                if (Member2Exists == null)
+                {
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+        public async Task<(int, List<GetTaskDto>)> GetAllTasks(EmployeeRole Role, int assignedTo, TaskPaginatedDto PDto)
+        {
+            try
+            {
+
+
+                string? SortBy = PDto.SortBy;
+                bool IsAscending = PDto.IsAscending;
+                int pageNumber = PDto.pageNumber == 0 ? 1 : PDto.pageNumber;
+                int pageSize = PDto.pageSize == 0 ? 10 : PDto.pageSize;
+                int ProjectId = PDto.ProjectID;
+                List<int?>? AssignedTo = PDto.AssignedTo.Where(e => e != 0).ToList();
+                int count = 0;
+                var tasks = _dbContext.Taasks.Include(e => e.AssignedBy)
+                    .Include(e => e.AssignedTo)
+                    .Where(e => e.ProjectId == ProjectId && e.IsActive == true)
+                 .Select(e => new GetTaskDto
+                 {
+                     Id = e.Id,
+                     Name = e.Name,
+                     AssignedById = e.AssignedById,
+                     AssignedToId = e.AssignedToId,
+                     Assigned_From = e.AssignedBy.Name,
+                     Assigned_To = e.AssignedTo.Name,
+                     CreatedOn = e.CreatedOn,
+                     Description = e.Description,
+                     Status = e.Status,
+                     ParentId = e.ParentId,
+                     ProjectId = e.ProjectId,
+                     SprintId = e.SprintId,
+                     Type = e.TaskType
+
+                 }).AsQueryable();
+                count = await tasks.CountAsync();
+
+
+
+                if (Role != EmployeeRole.SuperAdmin)
+                {
+                    tasks = tasks.Where(t => t.AssignedToId == assignedTo);
+                    /*tasks = tasks.Where(t => t.AssignedById == assignedTo || t.AssignedToId == assignedTo);*/
+                    count = await tasks.CountAsync();
+
+                }
+                tasks = ApplyFiltering(tasks, PDto, assignedTo);
+                tasks = ApplySorting(tasks, SortBy, IsAscending);
+                var skipResult = (pageNumber - 1) * pageSize;
+                return (count, await tasks.Skip(skipResult).Take(pageSize).ToListAsync());
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+        public async Task<int> CheckInputDetails(AddTasksDtos dtos, int assignedBy)
+        {
+            try
+            {
+                if (dtos.AssignedToId == 0) { dtos.AssignedToId = null; }
+                if (dtos.ParentId == 0) { dtos.ParentId = null; }
+                if (dtos.SprintId == 0) { dtos.SprintId = null; }
+
+                if (dtos.type == TaskTypes.Task || dtos.type == TaskTypes.Bugs)
+                {
+                    if (dtos.ParentId == null)
+                    {
+                        return -9;
+                    }
+                }
+                var manager = await _dbContext.Employees.Where(e => e.Id == assignedBy).FirstOrDefaultAsync();
+                if (manager == null || !manager.IsActive)
+                {
+                    return -1;
+                }
+                var project = await _dbContext.Projects
+                   .Where(p => p.Id == dtos.ProjectId)
+                   .FirstOrDefaultAsync();
+                if (project == null)
+                {
+                    return -8;
+                }
+                if (dtos.AssignedToId != null)
+                {
+                    var employee = await _dbContext.Employees.Where(e => e.Id == dtos.AssignedToId).FirstOrDefaultAsync();
+                    if (employee == null || !employee.IsActive)
+                    {
+                        return -2;
+                    }
+                    var projectEmployee = await _dbContext.ProjectEmployees.FirstOrDefaultAsync(e => e.ProjectID == project.Id && e.EmployeeID == employee.Id);
+                    if (projectEmployee == null)
+                    {
+                        return -11;
+                    }
+
+                    // if the task is not self assigned
+                    // then
+                    // to assign a task one should be superadmin 
+                    // or manager of a project team member
+                    // or member of same project 
+                    if (dtos.AssignedToId != null)
+                    {
+                        if (manager.Role != EmployeeRole.SuperAdmin && dtos.AssignedToId != assignedBy)
+                        {
+                            bool checkManager = await CheckManagerOfEmployee(manager.Id, employee.Id);
+                            bool checkTeamMember = await CheckTeamMemberOfProject(assignedBy, dtos.AssignedToId, project.Id);
+
+
+                            if (!checkManager && !checkTeamMember)
+                            {
+                                return -3;
+                            }
+
+                        }
+                    }
+                }
+
+                if (dtos.type == TaskTypes.Epic)
+                {
+                    dtos.ParentId = null;
+                }
+                else if (dtos.ParentId != null)// (dtos.type != TaskTypes.Epic)
+                {
+                    if (dtos.type == TaskTypes.Feature)
+                    {
+                        var checkEpic = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.Epic && t.ProjectId == project.Id).FirstOrDefaultAsync();
+                        if (checkEpic == null)
+                        {
+                            return -4;
+                        }
+                    }
+                    else if (dtos.type == TaskTypes.UserStory)
+                    {
+                        var checkFeature = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.Feature && t.ProjectId == project.Id).FirstOrDefaultAsync();
+                        if (checkFeature == null)
+                        {
+                            return -5;
+                        }
+                    }
+                    else if (dtos.type == TaskTypes.Task)
+                    {
+                        var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == project.Id).FirstOrDefaultAsync();
+                        if (checkUserStory == null)
+                        {
+                            return -6;
+                        }
+                    }
+                    else if (dtos.type == TaskTypes.Bugs)
+                    {
+                        var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == project.Id).FirstOrDefaultAsync();
+                        if (checkUserStory == null)
+                        {
+                            return -7;
+                        }
+                    }
+                }
+
+
+                if (dtos.SprintId != null)
+                {
+                    var sprint = await _dbContext.Sprints.FirstOrDefaultAsync(s => s.Id == dtos.SprintId
+                                        && s.ProjectId == project.Id);
+                    if (sprint == null)
+                    {
+                        return -10;
+                    }
+                }
+                return 1;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+        public async Task<int> AddTasks(AddTasksDtos dtos, int assignedBy)
+        {
+            try
+            {
+                int checkInput = await CheckInputDetails(dtos, assignedBy);
+                if (checkInput < 0)
+                {
+                    return checkInput;
+                }
+
+                var tasks = new Tasks
+                {
+                    Name = dtos.Name,
+                    AssignedById = assignedBy,
+                    AssignedToId = dtos.AssignedToId,
+                    Description = dtos.Description,
+                    TaskType = dtos.type,
+                    Status = dtos.Status,
+                    CreatedBy = assignedBy,
+                    ParentId = dtos.ParentId,
+                    ProjectId = dtos.ProjectId,
+                    SprintId = dtos.SprintId,
+                    EstimateHours = dtos.EstimateHours,
+                    RemainingHours = dtos.EstimateHours
+                };
+                await _dbContext.Taasks.AddAsync(tasks);
+                await _dbContext.SaveChangesAsync();
+                return tasks.Id;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+        public async Task<int> UpdateTasks(UpdateTasksDto dto, int id, int AccessingId, EmployeeRole Role)
+        {
+            try
+            {
+
+                var tasks = await _dbContext.Taasks.Where(e => e.Id == id).FirstOrDefaultAsync();
+                if (tasks == null || !tasks.IsActive)
+                {
+                    return -1;
+                }
+                if (dto.RemainingHours != null && dto.RemainingHours > tasks.EstimateHours)
+                {
+                    return -2;
+                }
+                if (Role != EmployeeRole.SuperAdmin)
+                {
+                    if (tasks.AssignedById != AccessingId && tasks.AssignedToId != AccessingId) return -2;
+                }
+                int status = Convert.ToInt32(dto.Status);
+                if (status < 0 || status > 2) { return -3; }
+                if (status == 0)
                 {
                     tasks.Status = TasksStatus.Pending;
                 }
-             else  
+
+                else if (status == 1)
                 {
-                    tasks.Status = TasksStatus.Complete;
+                    tasks.Status = TasksStatus.Running;
                 }
-               await _dbContext.SaveChangesAsync();
-            return 1 ;
-        }
-        public async Task<bool> DeleteTasks(int id , int AccessingId)
-        {
-            var tasks = await _dbContext.Taasks.FirstOrDefaultAsync( e=> e.Id == id);
-            if( tasks.AssignedById != AccessingId && tasks.AssignedToId != AccessingId) return false;   
-            if (tasks == null || tasks.IsActive) return false;
-            tasks.IsActive = false;
-            _dbContext.SaveChanges();
-            return true;
 
-        }
-       public async Task<List<TaskDtos>?> GetTaskById(int assigneToId )
-        {
-            var tasksList = await _dbContext.Taasks
-                .Where( t=> t.AssignedToId == assigneToId || t.AssignedById == assigneToId)
-                .Select( e=> new TaskDtos
+                else
                 {
-                    Id = e.Id,
-                    Name= e.Name,
-                    Description=e.Description,
-                    AssignedById = e.AssignedById,
-                    AssignedToId = e.AssignedToId,
-                    Assigned_From = e.AssignedBy.Name,
-                    Assigned_To = e.AssignedTo.Name,
-                    CreatedOn =e.CreatedOn,
-                    Status = e.Status,
-                    
-                 }).ToListAsync();
-            if (tasksList == null) return null;
-            return tasksList;
+                    tasks.Status = TasksStatus.Completed;
+                }
+                await _dbContext.SaveChangesAsync();
+                return tasks.Id;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+        public async Task<bool> DeleteTasks(int id, int AccessingId, EmployeeRole role)
+        {
+            try
+            {
+                var tasks = await _dbContext.Taasks.FirstOrDefaultAsync(e => e.Id == id);
+                if (tasks == null || !tasks.IsActive) return false;
+                if (tasks.AssignedById != AccessingId && role != EmployeeRole.SuperAdmin) return false;
+
+                tasks.IsActive = false;
+                _dbContext.SaveChanges();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+
+        }
+        public async Task<List<GetTaskByIdDto>?> GetTaskById(int assigneToId)
+        {
+            try
+            {
+                var tasksList = await _dbContext.Taasks
+                    .Where(t => t.AssignedToId == assigneToId && t.IsActive)
+                    .Select(e => new GetTaskByIdDto
+                    {
+
+                        Name = e.Name,
+                        Description = e.Description,
+                        Assigned_From = e.AssignedBy.Name,
+                        Assigned_To = e.AssignedTo.Name,
+                        CreatedOn = e.CreatedOn,
+                        Status = e.Status,
+
+
+
+                    }).ToListAsync();
+                if (tasksList == null) return null;
+                return tasksList;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
         }
 
-        
+
     }
 }

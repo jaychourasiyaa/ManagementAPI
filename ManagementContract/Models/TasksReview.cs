@@ -10,7 +10,7 @@ using ManagementAPI.Contract.Models;
 namespace TasksReviewAPI
 
 {
-    public class TasksReview : BaseEntity
+    public class TasksReview  : BaseEntity
     {
         
         public int Id { get; set; }

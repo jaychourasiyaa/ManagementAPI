@@ -11,13 +11,17 @@ namespace ManagementAPI.Contract.Dtos
 {
     public class GetProjectDetailsDto
     {
+        public int Id { get; set; }
         public string Name { get; set; }
         public string Description { get; set; }
 
-        public string CreatedBy { get; set; }
         public DateTime CreatedOn { get; set; }
+     
+
+
+        public string CreatedBy { get; set; }
         public ProjectStatus Status { get; set; }
-        public List<NameAndIdEmployeeDto> ProjectEmployee { get; set; }
+        public List<IdandNameDto> ProjectEmployee { get; set; }
 
 
 

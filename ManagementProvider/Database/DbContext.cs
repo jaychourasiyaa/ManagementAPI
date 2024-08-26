@@ -18,7 +18,8 @@ namespace ManagementAPI.Provider.Database
         public DbSet<Attendence> Attendences { get; set; }
         public DbSet<Salary> Salaries { get; set; }
         public DbSet<ProjectEmployee> ProjectEmployees { get; set; }
-        
+        public DbSet<Sprint > Sprints { get; set; }
+        public DbSet<Log> Logs { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Employee>()
@@ -77,8 +78,26 @@ namespace ManagementAPI.Provider.Database
                 .WithOne( t => t.Tasks)
                 .HasForeignKey( t => t.TasksId)
                 .OnDelete( DeleteBehavior.Restrict);
-            
-
+            modelBuilder.Entity<Employee >()
+            .HasOne(e => e.Creator)
+              .WithMany() // No reverse navigation property
+              .HasForeignKey(e => e.CreatedBy)
+              .OnDelete(DeleteBehavior.Restrict); // Prevent cascade delete
+            modelBuilder.Entity<Tasks>()
+            .HasOne( t=> t.Parent)
+            .WithMany()
+            .HasForeignKey( t => t.ParentId)
+            .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Tasks>()
+            .HasOne(t => t.Sprint)
+            .WithMany()
+            .HasForeignKey(t => t.SprintId)
+            .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Log>()
+            .HasOne( t=> t.Taask)
+            .WithMany()
+            .HasForeignKey( t=> t.TaskId)
+            .OnDelete(DeleteBehavior.Restrict);
         }
     }
     

@@ -14,17 +14,15 @@ namespace ManagementAPI.Contract.Dtos
     {
         [Required(ErrorMessage = "Name is required.")]
         [StringLength(100, MinimumLength = 2, ErrorMessage = "The Name field cannot be shorter than 2 and longer than 100 characters.")]
-        [RegularExpression(@"^[a-zA-Z]+(\s+[a-zA-Z]+)*$", ErrorMessage = "The Name field can only contain alphabetic characters.")]
+        
         public string Name { get; set; }
         [Required(ErrorMessage = "Description is required.")]
         public string Description { get; set; }
 
-        
-        [Required(ErrorMessage = "Project Creator Id is a required field")]
-        [Range(1, int.MaxValue, ErrorMessage = "Employee id should be greater than 0")]
-        public int CreatedBy { get; set; } = 0;
+
+        [Range ( 0,2, ErrorMessage = "Status should be within 0-2")]
         public ProjectStatus Status { get; set; } = ProjectStatus.Created;
-        public List<int> Members { get; set; }  
+        public List<int> Members { get; set; }  = new List<int> ();
 
 
     }

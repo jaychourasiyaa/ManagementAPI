@@ -7,6 +7,7 @@ using ManagementAPI.Provider.Database;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Client;
 using System.Security.Claims;
 namespace ManagementAPI.Controllers;
@@ -23,11 +24,11 @@ public class TasksController : ControllerBase
         _dbContext = db;
         tasksService = tasksservices;
     }
-    [HttpGet]
+    [HttpPost("GetAllTasks")]
  
-    public async Task<ActionResult<List<GetTaskDto>?>> Get()
+    public async Task<ActionResult<PaginatedApiRespones<List<GetTaskDto>?>>> Get(TaskPaginatedDto dto )
     {
-        var respones = new ApiRespones<List<GetTaskDto>?>();
+        var respones = new PaginatedApiRespones<List<GetTaskDto>?>();
         try
         {
             EmployeeRole Role = EmployeeRole.Employee;
@@ -37,14 +38,15 @@ public class TasksController : ControllerBase
                 Role = (EmployeeRole)RoleEnum;
             }
             int assignedTo = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
-            var result = await tasksService.GetAllTasks(Role, assignedTo);
-            if( result == null)
+            (int,List<GetTaskDto>?) result = await tasksService.GetAllTasks(Role, assignedTo,dto);
+            if( result.Item2 == null)
             {
                 respones.Message = "No Task Found";
                 return NotFound(respones);
             }
             respones.Message = "Task Fetched";
-            respones.Data = result;
+            respones.TotalEntriesCount = result.Item1;
+            respones.Data = result.Item2;
             return Ok(respones);
         }
         catch (Exception ex)
@@ -82,22 +84,65 @@ public class TasksController : ControllerBase
         try
         {
             int assignedBy = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
-            if(tasksDtos.AssignedToId == 0) { tasksDtos.AssignedToId = assignedBy; }
             int tskid = await tasksService.AddTasks(tasksDtos , assignedBy);
             
             if (tskid == -1)
             {
                 response.Message = "Task Assigner Id is invalid";
-                return NotFound(response);
+                
             }
-            if (tskid == -2)
+            else if (tskid == -2)
             {
                 response.Message = "Employee Id is invalid";
-                return NotFound(response);
+                
             }
-            if (tskid == -3)
+            else if (tskid == -9)
             {
-                response.Message = "Task Assigner is not a manager of given Employee Id";
+                response.Message = "Given Task Type must required a parent id";
+            }
+            else if (tskid == -3)
+            {
+                response.Message = "Task Assigner is not a manager and team member of given Employee Id";
+            
+            }
+            else if (tskid == -8)
+            {
+                response.Message = "Project Id is invalid";
+            }
+            else if (tskid == -4)
+            {
+                response.Message = "Feature Type should contain parent id only of Epic Type" + 
+                    "and of same project Id";
+                
+            }
+            else if (tskid == -5)
+            {
+                response.Message = "User Story Type should contain parent id only of Feature Type" +
+                    "and of same project Id";
+                
+            }
+            else if (tskid == -6)
+            {
+                response.Message = "Task Type should contain parent id only of User Story Type " +
+                    "and of same project Id";
+              
+            }
+            else if (tskid == -7)
+            {
+                response.Message = "Bug Type should contain parent id only of User Story Type +" +
+                    "and of same project Id";
+                
+            }
+            else if( tskid == -10)
+            {
+                response.Message = "Sprint Id is invalid or sprint id is not of same project id";
+            }
+            else if (tskid == -11)
+            {
+                response.Message = "Employee is not the memeber of given projectId";
+            }
+            if( tskid <0)
+            {
                 return NotFound(response);
             }
             response.Message = "Task Added";
@@ -112,12 +157,19 @@ public class TasksController : ControllerBase
         }
     }
     [HttpPut("{id}")]
-    public async Task<ActionResult<ApiRespones<int?>>> Update(int status, int id, int AccessingId)
+    public async Task<ActionResult<ApiRespones<int?>>> Update(UpdateTasksDto dto, int id)
     {
         var response = new ApiRespones<int?>();
         try
         {
-            int responseId = await tasksService.UpdateTasks(status, id, AccessingId);
+            int AccessingId = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
+            EmployeeRole Role = EmployeeRole.Employee;
+            var RoleClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+            if( Enum.TryParse(typeof(EmployeeRole) , RoleClaim, true, out var RoleEnum ))
+             { 
+                Role = (EmployeeRole)RoleEnum;
+            }
+            int responseId = await tasksService.UpdateTasks(dto, id, AccessingId,Role);
             
             if (responseId == -1)
             {             
@@ -126,6 +178,11 @@ public class TasksController : ControllerBase
             }
             if (responseId == -2)
             {                
+                response.Message = "Remaining Hours cannot be greater than Estimate Hours";
+                return Conflict(response);
+            }
+            if (responseId == -2)
+            {
                 response.Message = "Task is not accessible check Id";
                 return Conflict(response);
             }
@@ -146,18 +203,25 @@ public class TasksController : ControllerBase
         }
     }
     [HttpDelete("{id}")]
-    public async Task<ActionResult<ApiRespones<bool?>>> Delete(int id, int AccessingId)
+    public async Task<ActionResult<ApiRespones<bool?>>> Delete(int id)
     {
         var response = new ApiRespones<bool?>();
+
         try
         {
-
-            bool Deleted = await tasksService.DeleteTasks(id, AccessingId);
+            int AccessingId = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
+            EmployeeRole Role = new EmployeeRole();
+            var RoleClaim = User.Claims.FirstOrDefault( c => c.Type == ClaimTypes.Role)?.Value;
+            if( Enum.TryParse( typeof( EmployeeRole) , RoleClaim,true, out var RoleEnum))
+            {
+                Role = (EmployeeRole)RoleEnum;
+            }
+            bool Deleted = await tasksService.DeleteTasks(id, AccessingId , Role);
             
             if (!Deleted)
             {
                
-                response.Message = "Task Id is wrong or Task is unaccessible";
+                response.Message = "Task Id is wrong or Task is unaccessible to delete";
                 return NotFound(response);
             }
             response.Message = "Task Deleted";
@@ -173,9 +237,9 @@ public class TasksController : ControllerBase
 
     }
     [HttpGet("GetById")]
-    public async Task<ActionResult<ApiRespones<List<TaskDtos>?>>> GetbyId( )
+    public async Task<ActionResult<ApiRespones<List<GetTaskByIdDto>?>>> GetbyId( )
     {
-        var response = new ApiRespones<List<TaskDtos>?>();
+        var response = new ApiRespones<List<GetTaskByIdDto>?>();
         try
         {
             var assignedTo = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
@@ -187,7 +251,7 @@ public class TasksController : ControllerBase
             }
             response.Message = "Tasks Fetched";
             response.Data = result;
-            response.TotalEntriesCount = result.Count;  
+           
             return Ok(response);
         }
         catch( Exception ex )

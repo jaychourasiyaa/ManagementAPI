@@ -3,12 +3,14 @@ using ManagementAPI.Contract.Dtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Responses;
 using ManagementAPI.Provider.Database;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Identity.Client;
 namespace ManagementAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize (Roles ="SuperAdmin")]
     public class AttendenceController : ControllerBase
     {
 

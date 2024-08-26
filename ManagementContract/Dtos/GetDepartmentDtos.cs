@@ -6,10 +6,11 @@ using System.Threading.Tasks;
 
 namespace ManagementAPI.Contract.Dtos
 {
-    public class NameAndIdEmployeeDto
+    public class GetDepartmentDtos
     {
         public int Id { get; set; }
-        public string Name { get; set; }    
-        
+        public string Name { get; set; }
+        public DateTime CreatedOn { get; set; }
+        public string CreatedBy_Name { get; set; }
     }
 }

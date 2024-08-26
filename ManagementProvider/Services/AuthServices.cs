@@ -52,32 +52,37 @@ namespace ManagementAPI.Provider.Services
 
             return tokenHandler.WriteToken(token);
         }
-       
+
         public async Task<LoginResponseDto?> LoginUser(CredentialsDto dto)
         {
-        
+
             try
-            {
-                     var employee = await _dbContext.Employees
-                    .Where(e => e.Username == dto.UserName & e.IsActive)
-                    .FirstOrDefaultAsync();
-                if (employee == null)
+            {   // trying to find employee with given username and password
+                var employee = await _dbContext.Employees
+               .Where(e => e.Username == dto.UserName && e.IsActive)
+               .FirstOrDefaultAsync();
+
+                // if employee not exist or credentials in invalid returning null
+                if (employee == null || !employee.IsActive)
                 {
                     return null;
                 }
+
                 if(employee.Password != dto.Password)
                 {
                     return null;
                 }
+
+                // generating unique token for an employee
                 string token = GenerateToken(employee);
                 var responseInfo = new LoginResponseDto
                 {
                     Name = employee.Name,
                     EmployeeId = employee.Id,
                     Role = employee.Role,
-
                     Token = token
                 };
+                // sending token along with some details
                 return responseInfo;
             }
             catch (Exception ex)

@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace ManagementAPI.Contract.Dtos
 {
-    public class PaginatedGetDepartmentDto
+    public class PaginatedGetDepartmentDto 
     {
-       
+
         public string? SortBy { get; set; } = null;
         public bool IsAscending { get; set; } = true;
         public int pageNumber { get; set; } = 1;

@@ -12,7 +12,7 @@ namespace Taask_status
             
               Pending=0, 
               Running = 1,
-              Complete =2 
+              Completed =2 
             }
     
 }

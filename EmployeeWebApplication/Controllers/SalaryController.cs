@@ -3,6 +3,7 @@ using ManagementAPI.Contract.Dtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Responses;
 using ManagementAPI.Provider.Database;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ManagementAPI.Controllers
@@ -31,7 +32,7 @@ namespace ManagementAPI.Controllers
                     response.Message = "No Details Found";
                     return BadRequest(response);
                 }
-                response.Message = "Fetched Details on Advance Taken";
+                response.Message = "Fetched Dates of Advance Taken by Employee";
                 response.Data = salarydates;
                 return Ok(response);
             }
@@ -43,6 +44,7 @@ namespace ManagementAPI.Controllers
             }
         }
         [HttpPost]
+        [Authorize( Roles = "SuperAdmin" )]
         public async Task<ActionResult<ApiRespones<int?>>> Add(SalaryDtos salaryDtos)
         {
             var response = new ApiRespones<int?>();

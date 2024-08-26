@@ -18,28 +18,35 @@ public class Tasks : BaseEntity
     public required string Name { get; set; }
     
     public required string Description { get; set; }
-
-    
+    [ForeignKey(nameof(ParentId))]
+    public int ? ParentId { get; set; }
+    public TaskTypes TaskType { get; set; } = TaskTypes.Epic;
     public TasksStatus Status { get; set; } = TasksStatus.Pending;
 
     public bool IsActive { get; set; } = true;
    
    
     [ForeignKey(nameof(AssignedToId))]
-    public  required int AssignedToId { get; set; }
+    public  int ? AssignedToId { get; set; }
 
 
 
     [ForeignKey(nameof(AssignedById))]
     public required int AssignedById { get; set; }
     [ForeignKey(nameof(ProjectId))]
-    public int ? ProjectId { get; set; } 
+    public required int  ProjectId { get; set; } 
+    [ForeignKey(nameof(SprintId))]
+    
+    public int ? SprintId  { get; set; }
+    public Sprint Sprint;
+    public int EstimateHours { get; set; } = 0;
+    public int RemainingHours { get; set; } = 0;
     public virtual ICollection<TasksReview> Reviews { get; set; }
-
+    
     public Employee AssignedBy;
     public Employee AssignedTo;
     public Project Project;
-   
+    public Tasks Parent;
 
 
 }

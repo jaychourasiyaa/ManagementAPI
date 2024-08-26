@@ -13,14 +13,14 @@ namespace ManagementAPI.Contract.Responses
         public string ? Message { get; set; }
 
         public T? Data { get; set; }
-        public int ? TotalEntriesCount { get; set; }
+       
         public ApiRespones() { Success = true; Message = null;  }
 
-        public ApiRespones( bool success , string message , T data , int count)
+        public ApiRespones( bool success , string message , T data )
         {
             Success = success;
             Message = message;
-            TotalEntriesCount = count;
+         
             Data = data;    
         }
 
