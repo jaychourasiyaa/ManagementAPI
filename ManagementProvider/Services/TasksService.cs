@@ -534,7 +534,7 @@ namespace ManagementAPI.Provider.Services
                 int? previousParentId = tasks.ParentId;
                 TaskTypes previousTaskType = tasks.TaskType;
                 TasksStatus previousTaskStatus = tasks.Status;
-
+                var PreviousParent = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == tasks.ParentId);
                 // if valid task found checking accessibility 
                 // Who can access the task : 
                 // -- a user who has assigned task
@@ -576,7 +576,7 @@ namespace ManagementAPI.Provider.Services
                     // if task is not accessed by assinger , assingee , manager of assgnee, need to check for project team member
                     if (!checkManager && !Assigner && !Assignee)
                     {
-                        checkTeamMember = await CheckTeamMemberOfProject(tasks.AssignedById, tasks.AssignedToId, dto.ProjectId);
+                        checkTeamMember = await CheckTeamMemberOfProject(AccessingId, tasks.AssignedToId, dto.ProjectId);
                     }
                     if (!checkManager && !Assigner && !checkTeamMember && !Assignee) // task is unaccessible
                     {
@@ -664,7 +664,7 @@ namespace ManagementAPI.Provider.Services
                     tasks.Status = TasksStatus.Completed;
                 }
 
-                //
+                
                 // Adding Logs for changes
                 if (previousEHours != tasks.EstimateHours)
                 {
@@ -689,18 +689,18 @@ namespace ManagementAPI.Provider.Services
                     var log = new Log
                     {
                         TaskId = tasks.Id,
-                        Message = $" {Accessor.Name} Changed TaskType from {previousTaskType.ToString()}  to {tasks.TaskType.ToString()}"
+                        Message = $" {Accessor.Name} Changed Task Type from {previousTaskType.ToString()}  to {tasks.TaskType.ToString()}"
                     };
                     _dbContext.Logs.Add(log);
                 }
                 if (previousParentId != tasks.ParentId)
                 {
-                    var PreviousParent = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == dto.ParentId);
+                    
                     var UpdatedParent = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == tasks.ParentId);
                     var log = new Log
                     {
                         TaskId = tasks.Id,
-                        Message = $" {Accessor.Name} Changed ParentTask from {PreviousParent.Id} : {PreviousParent.Name} to {UpdatedParent.Id}" +
+                        Message = $" {Accessor.Name} Changed Parent Task from {PreviousParent.Id} : {PreviousParent.Name} to {UpdatedParent.Id}" +
                         $": {UpdatedParent.Name} "
                     };
                     _dbContext.Logs.Add(log);

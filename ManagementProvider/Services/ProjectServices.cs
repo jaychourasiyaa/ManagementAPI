@@ -18,6 +18,7 @@ using System.ComponentModel.Design;
 using ManagementAPI.Contract.Dtos.EmployeeDtos;
 using ManagementAPI.Contract.Enums;
 using System.Data;
+using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 
 
 namespace ManagementAPI.Provider.Services
@@ -268,15 +269,18 @@ namespace ManagementAPI.Provider.Services
                 string ? additonalSearch = dto.additionalSearch;
                 DateTime? startDate = dto.startDate;
                 DateTime? endDate = dto.endDate;
+
                 // getting project of an employee role wise
                 var employee = await _dbContext.Employees.FirstOrDefaultAsync(e => e.Id == employeeId);
                 int count = 0;
+
                 // if employee is null or soft deleted returning false
                 /*if (employee == null || employee.IsActive == false)
                 {
-                    return null;
+                    return (null,null);
                 }*/
                 IQueryable<GetProjectDetailsDto>? projects;
+
                 // if employee role is super admin giving all project to them
                 if (employee != null && employee.Role == EmployeeRole.SuperAdmin)
                 {
@@ -290,7 +294,7 @@ namespace ManagementAPI.Provider.Services
                      
                         Status = p.Status,
                         ProjectEmployee = p.ProjectEmployee
-                           /* .Where(p => p.IsActive == true)*/
+                            .Where(p => p.IsActive == true)
                             .Select(e => new IdandNameDto
                             {
                                 Name = e.Employee.Name,
@@ -304,7 +308,7 @@ namespace ManagementAPI.Provider.Services
                 }
                 else
                 {
-                    // if employee role is not  superadmin
+                    // if employee role is not superadmin
                     var employeeUnderManager = _dbContext.Employees
                         .Where(e => e.AdminId == employee.Id)
                         .Select(e => e.Id)
@@ -328,6 +332,7 @@ namespace ManagementAPI.Provider.Services
                                       
                                        Status = p.Status,
                                        ProjectEmployee = p.ProjectEmployee
+                                       .Where(p => p.IsActive == true)
                                        .Select(pe => new IdandNameDto
                                        {
                                            Name = pe.Employee.Name,
