@@ -203,29 +203,6 @@ namespace ManagementAPI.Controllers
             }
         }
 
-        [HttpGet("GetProjectTasks")]
-        [Authorize(Roles = "SuperAdmin")]
-        public async Task<ActionResult<PaginatedApiRespones<List<GetTaskDto>?>>> GetTasks(int? projectId, int? parenttId)
-        {
-            var respones = new PaginatedApiRespones<List<GetTaskDto>?>();
-            try
-            {
-                (int, List<GetTaskDto>?) tasks = await projectServices.getTasks(projectId, parenttId);
-                if (tasks.Item1 == 0)
-                {
-                    respones.Message = "No tasks found with given values";
-                    return NotFound(respones);
-                }
-                respones.Data = tasks.Item2;
-                respones.TotalEntriesCount = tasks.Item1;
-                return Ok(respones);
-            }
-            catch (Exception ex)
-            {
-                respones.Success = false;
-                respones.Message = ex.Message;
-                return BadRequest(respones);
-            }
-        }
+        
     }
 }

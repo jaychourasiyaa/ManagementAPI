@@ -452,52 +452,7 @@ namespace ManagementAPI.Provider.Services
             }
             return count;
         }
-        public async Task<(int, List<GetTaskDto>?)> getTasks(int? projectId, int? parentId)
-        {
-            List<GetTaskDto>? tasks = new List<GetTaskDto>();
-            int count = 0;
-            if (parentId == null && projectId != null)
-            {
-                tasks = await _dbContext.Taasks.Where(t => t.ProjectId == projectId && t.ParentId == null).
-                    Select(t => new GetTaskDto
-                    {
-                        Id = t.Id,
-                        Name = t.Name,
-                        Description = t.Description,
-                        AssignedById = t.AssignedById,
-                        AssignedToId = t.AssignedToId,
-                        Assigned_From = t.AssignedBy.Name,
-                        Assigned_To = t.AssignedTo.Name,
-                        CreatedOn = t.CreatedOn,
-                        ParentId = t.ParentId,
-                        ProjectId = t.ProjectId,
-                        Status = t.Status
-                    }).ToListAsync();
-                count = tasks.Count;
-            }
-            else if (parentId != null && projectId != null)
-            {
-                tasks = await _dbContext.Taasks.Where(t => t.ProjectId == projectId && t.ParentId == parentId).
-                    Select(t => new GetTaskDto
-                    {
-                        Id = t.Id,
-                        Name = t.Name,
-                        Description = t.Description,
-                        AssignedById = t.AssignedById,
-                        AssignedToId = t.AssignedToId,
-                        Assigned_From = t.AssignedBy.Name,
-                        Assigned_To = t.AssignedTo.Name,
-                        CreatedOn = t.CreatedOn,
-                        ParentId = t.ParentId,
-                        ProjectId = t.ProjectId,
-                        Status = t.Status
-                    }).ToListAsync();
-                count = tasks.Count;
-            }
-            
-            return ( count, tasks );
-            
-        }
+       
     }
    
     }

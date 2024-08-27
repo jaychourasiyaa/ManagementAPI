@@ -11,9 +11,7 @@ namespace ManagementAPI.Contract.Dtos
 {
     public class AddTasksDtos
     {
-        [Range(0,int.MaxValue, ErrorMessage = "Task Id cannot be less than 0") ]
-
-        public int ? Id { get; set; } = null;
+       
 
         [Required (ErrorMessage = "Task Name is a required field")]
         [StringLength(50, MinimumLength = 2, ErrorMessage = "The Task Name field cannot be shorter than 2 and longer than 50 characters.")]

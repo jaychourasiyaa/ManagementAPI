@@ -4,6 +4,7 @@ using ManagementAPI.Contract.Dtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Responses;
 using ManagementAPI.Provider.Database;
+using ManagementAPI.Provider.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -233,6 +234,11 @@ public class TasksController : ControllerBase
                 response.Message = "Parent Id is invalid";
                 return NotFound(response);
             }
+            else if( tskid == -99)
+            {
+                response.Message = "Cannot Make a Task Parent to itself";
+                return Conflict(response);
+            }
             response.Message = "Task Status Updated";
             response.Data = tskid;
             return Ok(response);
@@ -302,6 +308,30 @@ public class TasksController : ControllerBase
             response.Success = false;
             response.Message = ex.Message;
             return BadRequest(response);
+        }
+    }
+    [HttpGet("GetProjectTasks")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<ActionResult<PaginatedApiRespones<List<GetTaskDto>?>>> GetTasks(int? projectId, int? parenttId)
+    {
+        var respones = new PaginatedApiRespones<List<GetTaskDto>?>();
+        try
+        {
+            (int, List<GetTaskDto>?) tasks = await tasksService.getTasks(projectId, parenttId);
+            if (tasks.Item1 == 0)
+            {
+                respones.Message = "No tasks found with given values";
+                return NotFound(respones);
+            }
+            respones.Data = tasks.Item2;
+            respones.TotalEntriesCount = tasks.Item1;
+            return Ok(respones);
+        }
+        catch (Exception ex)
+        {
+            respones.Success = false;
+            respones.Message = ex.Message;
+            return BadRequest(respones);
         }
     }
 

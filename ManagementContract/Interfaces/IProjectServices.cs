@@ -19,7 +19,6 @@ namespace ManagementAPI.Contract.Interfaces
         public Task<bool> DeleteMember(int employeeId,int projectId);
         public Task<int?> GetCountStatusWise(int status);
 
-        public Task<(int, List<GetTaskDto>?)> getTasks(int? projectId, int? parentId);
 
 
     }
