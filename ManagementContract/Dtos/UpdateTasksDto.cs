@@ -19,7 +19,9 @@ namespace ManagementAPI.Contract.Dtos
         Change task type.
         Change parent task.
         add children tasks.*/
-        [Required(ErrorMessage = "Description is a required field")]
+        [Required(ErrorMessage = "Project Id is a required field")]
+        [Range (1,int.MaxValue,ErrorMessage ="ProjectId should be greater than 0")]
+        public int ProjectId { get; set; }
         public string? Description { get; set; } = null;
 
         [Range(0, int.MaxValue, ErrorMessage = "ParentId should be greater than or equal to 0")]
@@ -30,6 +32,9 @@ namespace ManagementAPI.Contract.Dtos
 
         [Range(0, 2, ErrorMessage = "Status is invalid should be between 0-2")]
         public TasksStatus ? Status { get; set; } = null;
+
+        [Range(0, int.MaxValue, ErrorMessage = "Estimate Hours hours cannot be less than 0")]
+        public int? EstimateHours { get; set; } = null;
 
         [Range(0, int.MaxValue, ErrorMessage = "Remaining hours cannot be less than 0")]
         public int ? RemainingHours { get; set; } = null;

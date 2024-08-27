@@ -21,6 +21,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ManagementAPI.Contract.Models;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore.SqlServer.Query.Internal;
+using System.Runtime.Versioning;
+using System.ComponentModel.DataAnnotations;
 namespace ManagementAPI.Provider.Services
 {
     public class TasksService : ITasksServices
@@ -193,7 +195,7 @@ namespace ManagementAPI.Provider.Services
             return tasks;
         }
 
-        public async Task<bool> CheckManagerOfEmployee(int managerId, int employeeId)
+        public async Task<bool> CheckManagerOfEmployee(int managerId, int? employeeId)
         {
             var manager = await _dbContext.Employees
                 .Where(e => e.Id == employeeId && e.AdminId == managerId)
@@ -201,7 +203,7 @@ namespace ManagementAPI.Provider.Services
             if (manager == null) return false;
             return true;
         }
-        
+
 
         //Member1 = Task Assigner
         //Member2 = Task Assignee
@@ -280,6 +282,49 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
+        public async Task<int> checkTaskHeirarchy(TaskTypes type, int ParentId, int ProjectId)
+        {
+            try
+            {
+                if (type == TaskTypes.Feature)
+                {
+                    var checkEpic = await _dbContext.Taasks.Where(t => t.Id == ParentId && t.TaskType == TaskTypes.Epic && t.ProjectId == ProjectId).FirstOrDefaultAsync();
+                    if (checkEpic == null)
+                    {
+                        return -7;
+                    }
+                }
+                else if (type == TaskTypes.UserStory)
+                {
+                    var checkFeature = await _dbContext.Taasks.Where(t => t.Id == ParentId && t.TaskType == TaskTypes.Feature && t.ProjectId == ProjectId).FirstOrDefaultAsync();
+                    if (checkFeature == null)
+                    {
+                        return -8;
+                    }
+                }
+                else if (type == TaskTypes.Task)
+                {
+                    var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == ProjectId).FirstOrDefaultAsync();
+                    if (checkUserStory == null)
+                    {
+                        return -9;
+                    }
+                }
+                else if (type == TaskTypes.Bugs)
+                {
+                    var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == ProjectId).FirstOrDefaultAsync();
+                    if (checkUserStory == null)
+                    {
+                        return -10;
+                    }
+                }
+                return 1;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
         public async Task<int> CheckInputDetails(AddTasksDtos dtos, int assignedBy)
         {
             try
@@ -292,32 +337,32 @@ namespace ManagementAPI.Provider.Services
                 {
                     if (dtos.ParentId == null)
                     {
-                        return -9;
+                        return -1;
                     }
                 }
                 var manager = await _dbContext.Employees.Where(e => e.Id == assignedBy).FirstOrDefaultAsync();
                 if (manager == null || !manager.IsActive)
                 {
-                    return -1;
+                    return -2;
                 }
                 var project = await _dbContext.Projects
                    .Where(p => p.Id == dtos.ProjectId)
                    .FirstOrDefaultAsync();
                 if (project == null)
                 {
-                    return -8;
+                    return -3;
                 }
                 if (dtos.AssignedToId != null)
                 {
                     var employee = await _dbContext.Employees.Where(e => e.Id == dtos.AssignedToId).FirstOrDefaultAsync();
                     if (employee == null || !employee.IsActive)
                     {
-                        return -2;
+                        return -4;
                     }
                     var projectEmployee = await _dbContext.ProjectEmployees.FirstOrDefaultAsync(e => e.ProjectID == project.Id && e.EmployeeID == employee.Id);
                     if (projectEmployee == null)
                     {
-                        return -11;
+                        return -5;
                     }
 
                     // if the task is not self assigned
@@ -335,7 +380,7 @@ namespace ManagementAPI.Provider.Services
 
                             if (!checkManager && !checkTeamMember)
                             {
-                                return -3;
+                                return -6;
                             }
 
                         }
@@ -348,38 +393,44 @@ namespace ManagementAPI.Provider.Services
                 }
                 else if (dtos.ParentId != null)// (dtos.type != TaskTypes.Epic)
                 {
-                    if (dtos.type == TaskTypes.Feature)
+                    int ParentId = Convert.ToInt32(dtos.ParentId);
+                    int checkTaskLevel = await checkTaskHeirarchy(dtos.type, ParentId, project.Id);
+                    if (checkTaskLevel < 0)
                     {
-                        var checkEpic = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.Epic && t.ProjectId == project.Id).FirstOrDefaultAsync();
-                        if (checkEpic == null)
-                        {
-                            return -4;
-                        }
+                        return checkTaskLevel;
                     }
-                    else if (dtos.type == TaskTypes.UserStory)
-                    {
-                        var checkFeature = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.Feature && t.ProjectId == project.Id).FirstOrDefaultAsync();
-                        if (checkFeature == null)
-                        {
-                            return -5;
-                        }
-                    }
-                    else if (dtos.type == TaskTypes.Task)
-                    {
-                        var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == project.Id).FirstOrDefaultAsync();
-                        if (checkUserStory == null)
-                        {
-                            return -6;
-                        }
-                    }
-                    else if (dtos.type == TaskTypes.Bugs)
-                    {
-                        var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == project.Id).FirstOrDefaultAsync();
-                        if (checkUserStory == null)
-                        {
-                            return -7;
-                        }
-                    }
+                    /* if (dtos.type == TaskTypes.Feature)
+                     {
+                         var checkEpic = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.Epic && t.ProjectId == project.Id).FirstOrDefaultAsync();
+                         if (checkEpic == null)
+                         {
+                             return -4;
+                         }
+                     }
+                     else if (dtos.type == TaskTypes.UserStory)
+                     {
+                         var checkFeature = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.Feature && t.ProjectId == project.Id).FirstOrDefaultAsync();
+                         if (checkFeature == null)
+                         {
+                             return -5;
+                         }
+                     }
+                     else if (dtos.type == TaskTypes.Task)
+                     {
+                         var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == project.Id).FirstOrDefaultAsync();
+                         if (checkUserStory == null)
+                         {
+                             return -6;
+                         }
+                     }
+                     else if (dtos.type == TaskTypes.Bugs)
+                     {
+                         var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == project.Id).FirstOrDefaultAsync();
+                         if (checkUserStory == null)
+                         {
+                             return -7;
+                         }
+                     }*/
                 }
 
 
@@ -389,7 +440,7 @@ namespace ManagementAPI.Provider.Services
                                         && s.ProjectId == project.Id);
                     if (sprint == null)
                     {
-                        return -10;
+                        return -11;
                     }
                 }
                 return 1;
@@ -438,26 +489,171 @@ namespace ManagementAPI.Provider.Services
             try
             {
 
-                var tasks = await _dbContext.Taasks.Where(e => e.Id == id).FirstOrDefaultAsync();
+                // checks that does not reqiure calling database
+                if (dto.type != null)
+                {
+                    //task type epic cannot have parent
+                    if (dto.type == TaskTypes.Epic && dto.ParentId != null)
+                    {
+                        return -1;
+                    }
+                    //task type task and bugs must need a parent
+                    else if (dto.type == TaskTypes.Task || dto.type == TaskTypes.Bugs)
+                    {
+                        if (dto.ParentId == null)
+                        {
+                            return -2;
+                        }
+                    }
+                }
+                // checking that the legit person is logged in
+                var Accessor = await _dbContext.Employees.FirstOrDefaultAsync(e => e.Id == AccessingId && e.IsActive);
+                if (Accessor == null)
+                {
+                    return -3;
+                }
+
+                //checking valid project 
+                var project = await _dbContext.Projects.FirstOrDefaultAsync(p => p.Id == dto.ProjectId);
+                if (project == null)
+                {
+                    return -4;
+                }
+
+                // checking a valid task or not with given task Id and project Id
+                var tasks = await _dbContext.Taasks.Where(e => e.Id == id && e.IsActive && e.ProjectId == project.Id).FirstOrDefaultAsync();
                 if (tasks == null || !tasks.IsActive)
                 {
-                    return -1;
+                    return -5;
                 }
-                if (dto.RemainingHours != null && dto.RemainingHours > tasks.EstimateHours)
+
+                // storing previous value for comparison after updation to generate log
+                int previousEHours = tasks.EstimateHours;
+                int previousRHours = tasks.RemainingHours;
+                string previousDescription = tasks.Description;
+                int? previousParentId = tasks.ParentId;
+                TaskTypes previousTaskType = tasks.TaskType;
+                TasksStatus previousTaskStatus = tasks.Status;
+
+                // if valid task found checking accessibility 
+                // Who can access the task : 
+                // -- a user who has assigned task
+                // -- or a user whom the task has been assigned
+                // -- or superadmin
+                // -- or project team member 
+                // -- or the manager of the user whom the task has been assigned 
+                // all the above have the access the update the task
+
+                bool Assignee = false;
+                bool checkManager = false;
+                bool checkTeamMember = false;
+                bool Assigner = false;
+                if (Role != EmployeeRole.SuperAdmin) // not superadmin accessing
                 {
-                    return -2;
+                    if (tasks.AssignedToId != null) // for assigned task check for assigneer , assignee, manager of assignee 
+                    {
+                        if (tasks.AssignedById == AccessingId) // check for assinger
+                        {
+                            Assigner = true;
+                        }
+                        else if (tasks.AssignedToId == AccessingId) // check for assignee
+                        {
+                            Assignee = true;
+                        }
+                        else // (tasks.AssignedById != AccessingId && tasks.AssignedToId != AccessingId) // checking for manager of assignee
+                        {
+                            checkManager = await CheckManagerOfEmployee(AccessingId, tasks.AssignedToId);
+                        }
+                    }
+                    else // unassigned task
+                    {
+                        if (tasks.AssignedById == AccessingId) // task has no assigne so no nedd to check for manager just check for assigner
+                        {
+                            Assigner = true;
+                        }
+                    }
+
+                    // if task is not accessed by assinger , assingee , manager of assgnee, need to check for project team member
+                    if (!checkManager && !Assigner && !Assignee)
+                    {
+                        checkTeamMember = await CheckTeamMemberOfProject(tasks.AssignedById, tasks.AssignedToId, dto.ProjectId);
+                    }
+                    if (!checkManager && !Assigner && !checkTeamMember && !Assignee) // task is unaccessible
+                    {
+                        return -6;
+                    }
                 }
-                if (Role != EmployeeRole.SuperAdmin)
+                // if task is accessible
+                // if user want to task type ->parent id is needed expect if task type is epic
+                if (dto.type != null)
                 {
-                    if (tasks.AssignedById != AccessingId && tasks.AssignedToId != AccessingId) return -2;
+                    if (dto.type == TaskTypes.Epic)
+                    {
+                        tasks.TaskType = TaskTypes.Epic;
+                        tasks.ParentId = null;
+                    }
+                    else
+                    {
+                        var type = (TaskTypes)dto.type;
+                        int ParentId = Convert.ToInt32(dto.ParentId);
+                        int checkTaskLevel = await checkTaskHeirarchy(type, ParentId, project.Id);
+                        if (checkTaskLevel < 0)
+                        {
+                            return checkTaskLevel;
+                        }
+                        tasks.ParentId = dto.ParentId;
+                        tasks.TaskType = (TaskTypes)dto.type;
+                    }
+                }
+
+                // checking if user want to update estimated and remaining hours or not 
+                // if yes giving checks that remaining hours must be less than estimated hours
+                if (dto.EstimateHours != null && dto.RemainingHours != null)
+                {
+                    if (dto.RemainingHours > dto.EstimateHours)
+                    {
+                        return -11;
+                    }
+                    tasks.EstimateHours = Convert.ToInt32(dto.EstimateHours);
+                    tasks.RemainingHours = Convert.ToInt32(dto.RemainingHours);
+                }
+                else if (dto.EstimateHours != null)
+                {
+                    if (dto.EstimateHours < tasks.RemainingHours)
+                    {
+                        return -11;
+                    }
+                    tasks.EstimateHours = Convert.ToInt32(dto.EstimateHours);
+
+                }
+                else if (dto.RemainingHours != null)
+                {
+                    if (dto.RemainingHours > tasks.EstimateHours)
+                    {
+                        return -11;
+                    }
+                    tasks.RemainingHours = Convert.ToInt32(dto.RemainingHours);
+
+                }
+                if (dto.Description != null)
+                {
+                    tasks.Description = dto.Description;
+                }
+                // if user want to update parent tasks
+                if (dto.type == null && dto.ParentId != null)
+                {
+                    var parentTask = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == dto.ParentId && t.IsActive);
+                    if (parentTask == null)
+                    {
+                        return -12;
+                    }
+                    tasks.ParentId = parentTask.Id;
                 }
                 int status = Convert.ToInt32(dto.Status);
-                if (status < 0 || status > 2) { return -3; }
                 if (status == 0)
                 {
                     tasks.Status = TasksStatus.Pending;
                 }
-
                 else if (status == 1)
                 {
                     tasks.Status = TasksStatus.Running;
@@ -467,6 +663,67 @@ namespace ManagementAPI.Provider.Services
                 {
                     tasks.Status = TasksStatus.Completed;
                 }
+
+                //
+                // Adding Logs for changes
+                if (previousEHours != tasks.EstimateHours)
+                {
+                    var log = new Log
+                    {
+                        TaskId = tasks.Id,
+                        Message = $" {Accessor.Name} Changed Estimated Hours from {previousEHours} to {tasks.EstimateHours} "
+                    };
+                    _dbContext.Logs.Add(log);
+                }
+                if (previousRHours != tasks.RemainingHours)
+                {
+                    var log = new Log
+                    {
+                        TaskId = tasks.Id,
+                        Message = $" {Accessor.Name} Changed Remaining Hours from {previousRHours} to {tasks.RemainingHours} "
+                    };
+                    _dbContext.Logs.Add(log);
+                }
+                if (previousTaskType != tasks.TaskType)
+                {
+                    var log = new Log
+                    {
+                        TaskId = tasks.Id,
+                        Message = $" {Accessor.Name} Changed TaskType from {previousTaskType.ToString()}  to {tasks.TaskType.ToString()}"
+                    };
+                    _dbContext.Logs.Add(log);
+                }
+                if (previousParentId != tasks.ParentId)
+                {
+                    var PreviousParent = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == dto.ParentId);
+                    var UpdatedParent = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == tasks.ParentId);
+                    var log = new Log
+                    {
+                        TaskId = tasks.Id,
+                        Message = $" {Accessor.Name} Changed ParentTask from {PreviousParent.Id} : {PreviousParent.Name} to {UpdatedParent.Id}" +
+                        $": {UpdatedParent.Name} "
+                    };
+                    _dbContext.Logs.Add(log);
+                }
+                if (previousDescription != tasks.Description)
+                {
+                    var log = new Log
+                    {
+                        TaskId = tasks.Id,
+                        Message = $" {Accessor.Name} Changed Description from {previousDescription}  to {tasks.Description}"
+                    };
+                    _dbContext.Logs.Add(log);
+                }
+                if (previousTaskStatus != tasks.Status)
+                {
+                    var log = new Log
+                    {
+                        TaskId = tasks.Id,
+                        Message = $" {Accessor.Name} Changed Status from {previousTaskStatus.ToString()}  to {tasks.Status.ToString()}"
+                    };
+                    _dbContext.Logs.Add(log);
+                }
+
                 await _dbContext.SaveChangesAsync();
                 return tasks.Id;
             }
