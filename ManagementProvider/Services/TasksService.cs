@@ -40,7 +40,7 @@ namespace ManagementAPI.Provider.Services
             string? filterQuery = PDto.filterQuery;
             List<TasksStatus>? Status = PDto.status;
             List<TaskTypes>? Type = PDto.type;
-            List<int?>? AssignedTo = PDto.AssignedTo.Where(e => e != 0).ToList();
+            List<int?>? AssignedTo = PDto.AssignedTo.Where(e => e != 0).ToList() ;
             bool assigned = PDto.Assigned;
             int? SprintId = PDto.SprintId;
             int? ParentId = PDto.ParentId;
@@ -67,13 +67,13 @@ namespace ManagementAPI.Provider.Services
             {
                 tasks = tasks.Where(t => t.ParentId == ParentId);
             }
-            if (Status.Count != 0)
+            if (Status != null && Status.Count != 0)
             {
                 tasks = tasks.Where(t => Status.Contains(t.Status));
 
             }
 
-            if (Type.Count != 0)
+            if (Type != null && Type.Count != 0)
             {
                 tasks = tasks.Where(t => Type.Contains(t.Type));
             }
@@ -89,6 +89,8 @@ namespace ManagementAPI.Provider.Services
                 }
             }
             return tasks;
+
+            ////
             ////
             ////
             ////
@@ -282,26 +284,26 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
-        public async Task<int> checkTaskHeirarchy(int ? taskId,TaskTypes type, int ParentId, int ProjectId)
+        public async Task<int> checkTaskHeirarchy(int? taskId, TaskTypes type, int ParentId, int ProjectId)
         {
             try
             {
                 if (type == TaskTypes.Feature)
                 {
-                    var checkEpic = await _dbContext.Taasks.Where(t => t.Id == ParentId && t.TaskType == TaskTypes.Epic && t.ProjectId == ProjectId ).FirstOrDefaultAsync();
+                    var checkEpic = await _dbContext.Taasks.Where(t => t.Id == ParentId && t.TaskType == TaskTypes.Epic && t.ProjectId == ProjectId).FirstOrDefaultAsync();
                     if (checkEpic == null)
                     {
                         return -7;
                     }
-                    if ( taskId != null && checkEpic.Id == taskId)
+                    if (taskId != null && checkEpic.Id == taskId)
                     {
                         return -99;
                     }
-                    
+
                 }
                 else if (type == TaskTypes.UserStory)
                 {
-                    var checkFeature = await _dbContext.Taasks.Where(t => t.Id == ParentId && t.TaskType == TaskTypes.Feature && t.ProjectId == ProjectId ).FirstOrDefaultAsync();
+                    var checkFeature = await _dbContext.Taasks.Where(t => t.Id == ParentId && t.TaskType == TaskTypes.Feature && t.ProjectId == ProjectId).FirstOrDefaultAsync();
                     if (checkFeature == null)
                     {
                         return -8;
@@ -313,7 +315,7 @@ namespace ManagementAPI.Provider.Services
                 }
                 else if (type == TaskTypes.Task)
                 {
-                    var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == ProjectId ).FirstOrDefaultAsync();
+                    var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == ProjectId).FirstOrDefaultAsync();
                     if (checkUserStory == null)
                     {
                         return -9;
@@ -325,7 +327,7 @@ namespace ManagementAPI.Provider.Services
                 }
                 else if (type == TaskTypes.Bugs)
                 {
-                    var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == ProjectId ).FirstOrDefaultAsync();
+                    var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == ProjectId).FirstOrDefaultAsync();
                     if (checkUserStory == null)
                     {
                         return -10;
@@ -411,7 +413,7 @@ namespace ManagementAPI.Provider.Services
                 else if (dtos.ParentId != null)// (dtos.type != TaskTypes.Epic)
                 {
                     int ParentId = Convert.ToInt32(dtos.ParentId);
-                    int checkTaskLevel = await checkTaskHeirarchy(null,dtos.type, ParentId, project.Id);
+                    int checkTaskLevel = await checkTaskHeirarchy(null, dtos.type, ParentId, project.Id);
                     if (checkTaskLevel < 0)
                     {
                         return checkTaskLevel;
@@ -615,7 +617,7 @@ namespace ManagementAPI.Provider.Services
                         int ParentId = Convert.ToInt32(dto.ParentId);
                         if (dto.ParentId != null)
                         {
-                            int checkTaskLevel = await checkTaskHeirarchy(tasks.Id,type, ParentId, project.Id);
+                            int checkTaskLevel = await checkTaskHeirarchy(tasks.Id, type, ParentId, project.Id);
                             if (checkTaskLevel < 0)
                             {
                                 return checkTaskLevel;
@@ -663,13 +665,13 @@ namespace ManagementAPI.Provider.Services
                 if (dto.type == null && dto.ParentId != null)
                 {
                     var parentTask = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == dto.ParentId && t.IsActive);
-                    
+
                     if (parentTask == null)
                     {
                         return -12;
                     }
-                    var checkTaskLevel = await checkTaskHeirarchy(tasks.Id,tasks.TaskType, parentTask.Id, project.Id);
-                    if(checkTaskLevel <0)
+                    var checkTaskLevel = await checkTaskHeirarchy(tasks.Id, tasks.TaskType, parentTask.Id, project.Id);
+                    if (checkTaskLevel < 0)
                     {
                         return checkTaskLevel;
                     }
@@ -690,7 +692,7 @@ namespace ManagementAPI.Provider.Services
                     tasks.Status = TasksStatus.Completed;
                 }
 
-                
+
                 // Adding Logs for changes
                 if (previousEHours != tasks.EstimateHours)
                 {
@@ -816,51 +818,90 @@ namespace ManagementAPI.Provider.Services
             }
         }
 
-        public async Task<(int, List<GetTaskDto>?)> getTasks(int? projectId, int? parentId)
+        public async Task<(int, List<GetTaskDto>?)> getTasks(int projectId, int taskId, bool children)
         {
-            List<GetTaskDto>? tasks = new List<GetTaskDto>();
-            int count = 0;
-            if (parentId == null && projectId != null)
+            try
             {
-                tasks = await _dbContext.Taasks.Where(t => t.ProjectId == projectId && t.ParentId == null).
-                    Select(t => new GetTaskDto
+
+                List<GetTaskDto>? resultTasks = new List<GetTaskDto>();
+                var project = await _dbContext.Projects.Where(p => p.Id == projectId).FirstOrDefaultAsync();
+                if (project == null)
+                {
+                    return (-1, null);
+                }
+                var tasks = await _dbContext.Taasks.Where(t => t.Id == taskId && t.ProjectId == projectId).FirstOrDefaultAsync();
+
+                if (tasks == null)
+                {
+                    return (-2, null);
+                }
+
+                int count = 0;
+                var type = tasks.TaskType;
+                var toFindType = new TaskTypes();
+                bool flag = true;
+                var query = _dbContext.Taasks.Where(t => t.ProjectId == projectId)
+                            .Select(t => new GetTaskDto
+                            {
+                                Id = t.Id,
+                                Name = t.Name,
+                                Description = t.Description,
+                                AssignedById = t.AssignedById,
+                                AssignedToId = t.AssignedToId,
+                                Assigned_From = t.AssignedBy.Name,
+                                Assigned_To = t.AssignedTo.Name,
+                                CreatedOn = t.CreatedOn,
+                                ParentId = t.ParentId,
+                                ProjectId = t.ProjectId,
+                                Status = t.Status,
+                                Type = t.TaskType,
+                            }).AsQueryable();
+                count = resultTasks.Count;
+
+                if (children && type != TaskTypes.Task && type != TaskTypes.Bugs) // want children
+                {
+                    toFindType = (TaskTypes)(Convert.ToInt32(type) + 1);
+                    if (type != TaskTypes.UserStory)
                     {
-                        Id = t.Id,
-                        Name = t.Name,
-                        Description = t.Description,
-                        AssignedById = t.AssignedById,
-                        AssignedToId = t.AssignedToId,
-                        Assigned_From = t.AssignedBy.Name,
-                        Assigned_To = t.AssignedTo.Name,
-                        CreatedOn = t.CreatedOn,
-                        ParentId = t.ParentId,
-                        ProjectId = t.ProjectId,
-                        Status = t.Status
-                    }).ToListAsync();
-                count = tasks.Count;
+                        query = query.Where(t => t.Type == toFindType);
+                        flag = false;
+
+                    }
+                    else
+                    {
+                        query = query.Where(t => t.Type == toFindType || t.Type == TaskTypes.Bugs);
+                        flag = false;
+                    }
+                }
+                else if (children == false && type != TaskTypes.Epic)// want parent
+                {
+
+                    toFindType = (TaskTypes)(Convert.ToInt32(type) - 1);
+                    if (type == TaskTypes.Task || type == TaskTypes.Bugs)
+                    {
+                        query = query.Where(t => t.Type == TaskTypes.UserStory);
+                        flag = false;
+                    }
+                    else
+                    {
+                        query = query.Where(t => t.Type == toFindType);
+                        flag = false;
+                    }
+                }
+                if (flag)
+                {
+                    return (0, null);
+                }
+                resultTasks = await query.ToListAsync();
+                count = query.Count();
+                return (count, resultTasks);
+
+
             }
-            else if (parentId != null && projectId != null)
+            catch (Exception ex)
             {
-                tasks = await _dbContext.Taasks.Where(t => t.ProjectId == projectId && t.ParentId == parentId).
-                    Select(t => new GetTaskDto
-                    {
-                        Id = t.Id,
-                        Name = t.Name,
-                        Description = t.Description,
-                        AssignedById = t.AssignedById,
-                        AssignedToId = t.AssignedToId,
-                        Assigned_From = t.AssignedBy.Name,
-                        Assigned_To = t.AssignedTo.Name,
-                        CreatedOn = t.CreatedOn,
-                        ParentId = t.ParentId,
-                        ProjectId = t.ProjectId,
-                        Status = t.Status
-                    }).ToListAsync();
-                count = tasks.Count;
+                throw ex;
             }
-
-            return (count, tasks);
-
         }
     }
 }

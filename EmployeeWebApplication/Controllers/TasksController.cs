@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.SqlServer.Query.Internal;
 using Microsoft.Identity.Client;
 using System.Security.Claims;
 namespace ManagementAPI.Controllers;
@@ -310,19 +311,30 @@ public class TasksController : ControllerBase
             return BadRequest(response);
         }
     }
-    [HttpGet("GetProjectTasks")]
+    [HttpPost("GetProjectTasks")]
     [Authorize(Roles = "SuperAdmin")]
-    public async Task<ActionResult<PaginatedApiRespones<List<GetTaskDto>?>>> GetTasks(int? projectId, int? parenttId)
+    public async Task<ActionResult<PaginatedApiRespones<List<GetTaskDto>?>>> GetTasks(GetParentChildrenTask dto)
     {
         var respones = new PaginatedApiRespones<List<GetTaskDto>?>();
         try
         {
-            (int, List<GetTaskDto>?) tasks = await tasksService.getTasks(projectId, parenttId);
+            (int, List<GetTaskDto>?) tasks = await tasksService.getTasks(dto.ProjectId, dto.TaskId ,dto.WantChild);
             if (tasks.Item1 == 0)
             {
                 respones.Message = "No tasks found with given values";
                 return NotFound(respones);
             }
+            else if( tasks.Item1 == -1)
+            {
+                respones.Message = "ProjectId is invalid not found with given project Id";
+                return NotFound(respones);
+            }
+            else if (tasks.Item1 == -2)
+            {
+                respones.Message = "TaskId is invalid not found with given task and project Id";
+                return NotFound(respones);
+            }
+            respones.Message = "Task Fetched";
             respones.Data = tasks.Item2;
             respones.TotalEntriesCount = tasks.Item1;
             return Ok(respones);

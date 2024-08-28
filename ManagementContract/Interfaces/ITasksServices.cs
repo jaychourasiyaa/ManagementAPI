@@ -19,7 +19,7 @@ namespace ManagementAPI.Contract.Interfaces
 
         public Task<bool> DeleteTasks(int id ,int AccessingId, EmployeeRole Role);
 
-        public Task<(int, List<GetTaskDto>?)> getTasks(int? projectId, int? parentId);
+        public Task<(int, List<GetTaskDto>?)> getTasks(int  projectId, int TaskId , bool children);
 
 
 
