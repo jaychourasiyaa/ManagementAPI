@@ -38,7 +38,7 @@ public class Tasks : BaseEntity
     [ForeignKey(nameof(SprintId))]
     
     public int ? SprintId  { get; set; }
-    public Sprint Sprint;
+
     public int EstimateHours { get; set; } = 0;
     public int RemainingHours { get; set; } = 0;
     public virtual ICollection<TasksReview> Reviews { get; set; }
@@ -47,6 +47,7 @@ public class Tasks : BaseEntity
     public Employee AssignedTo;
     public Project Project;
     public Tasks Parent;
+    public Sprint Sprint;
 
 
 }

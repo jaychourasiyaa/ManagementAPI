@@ -23,6 +23,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore.SqlServer.Query.Internal;
 using System.Runtime.Versioning;
 using System.ComponentModel.DataAnnotations;
+using System.Data;
 namespace ManagementAPI.Provider.Services
 {
     public class TasksService : ITasksServices
@@ -40,7 +41,7 @@ namespace ManagementAPI.Provider.Services
             string? filterQuery = PDto.filterQuery;
             List<TasksStatus>? Status = PDto.status;
             List<TaskTypes>? Type = PDto.type;
-            List<int?>? AssignedTo = PDto.AssignedTo.Where(e => e != 0).ToList() ;
+            List<int?>? AssignedTo = PDto.AssignedTo.Where(e => e != 0).ToList();
             bool assigned = PDto.Assigned;
             int? SprintId = PDto.SprintId;
             int? ParentId = PDto.ParentId;
@@ -503,6 +504,56 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
+        public async Task<int> CheckTaskAccess(EmployeeRole Role, Tasks tasks, int AccessingId, Project project)
+        {
+            try
+            {
+                bool Assignee = false;
+                bool checkManager = false;
+                bool checkTeamMember = false;
+                bool Assigner = false;
+                if (Role != EmployeeRole.SuperAdmin) // not superadmin accessing
+                {
+                    if (tasks.AssignedToId != null) // for assigned task check for assigneer , assignee, manager of assignee 
+                    {
+                        if (tasks.AssignedById == AccessingId) // check for assinger
+                        {
+                            Assigner = true;
+                        }
+                        else if (tasks.AssignedToId == AccessingId) // check for assignee
+                        {
+                            Assignee = true;
+                        }
+                        else // (tasks.AssignedById != AccessingId && tasks.AssignedToId != AccessingId) // checking for manager of assignee
+                        {
+                            checkManager = await CheckManagerOfEmployee(AccessingId, tasks.AssignedToId);
+                        }
+                    }
+                    else // unassigned task
+                    {
+                        if (tasks.AssignedById == AccessingId) // task has no assigne so no nedd to check for manager just check for assigner
+                        {
+                            Assigner = true;
+                        }
+                    }
+
+                    // if task is not accessed by assinger , assingee , manager of assgnee, need to check for project team member
+                    if (!checkManager && !Assigner && !Assignee)
+                    {
+                        checkTeamMember = await CheckTeamMemberOfProject(AccessingId, tasks.AssignedToId, project.Id);
+                    }
+                    if (!checkManager && !Assigner && !checkTeamMember && !Assignee) // task is unaccessible
+                    {
+                        return -6;
+                    }
+                }
+                return 1;
+            }
+            catch(Exception ex)
+            {
+                throw ex;
+            }
+        }
         public async Task<int> UpdateTasks(UpdateTasksDto dto, int id, int AccessingId, EmployeeRole Role)
         {
             try
@@ -554,6 +605,10 @@ namespace ManagementAPI.Provider.Services
                 TaskTypes previousTaskType = tasks.TaskType;
                 TasksStatus previousTaskStatus = tasks.Status;
                 var PreviousParent = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == tasks.ParentId);
+                var previousSprint = await _dbContext.Sprints.FirstOrDefaultAsync(s => s.Id == tasks.SprintId);
+                int? previousSprintId = tasks.SprintId;
+                var previousAssignTo = await _dbContext.Employees.FirstOrDefaultAsync(e => e.Id == tasks.AssignedToId);
+                int? previousAssignToId = tasks.AssignedToId;
                 // if valid task found checking accessibility 
                 // Who can access the task : 
                 // -- a user who has assigned task
@@ -563,45 +618,12 @@ namespace ManagementAPI.Provider.Services
                 // -- or the manager of the user whom the task has been assigned 
                 // all the above have the access the update the task
 
-                bool Assignee = false;
-                bool checkManager = false;
-                bool checkTeamMember = false;
-                bool Assigner = false;
-                if (Role != EmployeeRole.SuperAdmin) // not superadmin accessing
+                int checkAccess = await CheckTaskAccess(Role, tasks, AccessingId, project);
+                if(checkAccess <0)
                 {
-                    if (tasks.AssignedToId != null) // for assigned task check for assigneer , assignee, manager of assignee 
-                    {
-                        if (tasks.AssignedById == AccessingId) // check for assinger
-                        {
-                            Assigner = true;
-                        }
-                        else if (tasks.AssignedToId == AccessingId) // check for assignee
-                        {
-                            Assignee = true;
-                        }
-                        else // (tasks.AssignedById != AccessingId && tasks.AssignedToId != AccessingId) // checking for manager of assignee
-                        {
-                            checkManager = await CheckManagerOfEmployee(AccessingId, tasks.AssignedToId);
-                        }
-                    }
-                    else // unassigned task
-                    {
-                        if (tasks.AssignedById == AccessingId) // task has no assigne so no nedd to check for manager just check for assigner
-                        {
-                            Assigner = true;
-                        }
-                    }
-
-                    // if task is not accessed by assinger , assingee , manager of assgnee, need to check for project team member
-                    if (!checkManager && !Assigner && !Assignee)
-                    {
-                        checkTeamMember = await CheckTeamMemberOfProject(AccessingId, tasks.AssignedToId, dto.ProjectId);
-                    }
-                    if (!checkManager && !Assigner && !checkTeamMember && !Assignee) // task is unaccessible
-                    {
-                        return -6;
-                    }
+                    return checkAccess;
                 }
+                
                 // if task is accessible
                 // if user want to task type ->parent id is needed expect if task type is epic
                 if (dto.type != null)
@@ -691,8 +713,32 @@ namespace ManagementAPI.Provider.Services
                 {
                     tasks.Status = TasksStatus.Completed;
                 }
-
-
+                if (dto.SprintId != null)
+                {
+                    var sprint = await _dbContext.Sprints.Where(s => s.Id == dto.SprintId && s.ProjectId == tasks.ProjectId).FirstOrDefaultAsync();
+                    if (sprint == null)
+                    {
+                        return -13;
+                    }
+                    tasks.SprintId = sprint.Id;
+                }
+                if (dto.AssignTo != null)
+                {
+                    var assignTo = await _dbContext.Employees.Where(e => e.Id == dto.AssignTo).FirstOrDefaultAsync();
+                    if (assignTo == null)
+                    {
+                        return -14;
+                    }
+                    var checkProjectMember = await _dbContext.ProjectEmployees.FirstOrDefaultAsync(p => p.ProjectID == project.Id && p.EmployeeID == assignTo.Id);
+                    if (checkProjectMember == null)
+                    {
+                        return -14;
+                    }
+                    tasks.AssignedToId = assignTo.Id;
+                }
+                
+                //
+                //
                 // Adding Logs for changes
                 if (previousEHours != tasks.EstimateHours)
                 {
@@ -724,6 +770,7 @@ namespace ManagementAPI.Provider.Services
                 var UpdatedParent = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == tasks.ParentId);
                 if (previousParentId != tasks.ParentId)
                 {
+
                     if (PreviousParent != null)
                     {
                         var log = new Log
@@ -733,14 +780,27 @@ namespace ManagementAPI.Provider.Services
                             $": {UpdatedParent.Name} "
                         };
                         _dbContext.Logs.Add(log);
+                        
                     }
                     else
+                    {
+                        
+                            var log = new Log
+                            {
+                                TaskId = tasks.Id,
+                                Message = $" {Accessor.Name} Added Parent Task  {UpdatedParent.Id}" +
+                                $": {UpdatedParent.Name} "
+                            };
+                            _dbContext.Logs.Add(log);
+                        
+                    }
                     {
                         var log = new Log
                         {
                             TaskId = tasks.Id,
-                            Message = $" {Accessor.Name} Added Parent Task  {UpdatedParent.Id}" +
-                            $": {UpdatedParent.Name} "
+                            Message = $" {Accessor.Name} Added Child Task {tasks.Id} : {tasks.Name}" +
+                            $" in {UpdatedParent.Id} " +
+                                $": {UpdatedParent.Name} "
                         };
                         _dbContext.Logs.Add(log);
                     }
@@ -763,7 +823,52 @@ namespace ManagementAPI.Provider.Services
                     };
                     _dbContext.Logs.Add(log);
                 }
-
+                if (previousAssignToId != tasks.AssignedToId)
+                {
+                    var updatedAssignTo = await _dbContext.Employees.Where(e => e.Id == tasks.AssignedToId).FirstOrDefaultAsync();
+                    if (previousAssignTo != null)
+                    {
+                        var log = new Log
+                        {
+                            TaskId = tasks.Id,
+                            Message = $" {Accessor.Name} Changed AssingTo from {previousAssignToId} : {previousAssignTo.Name} to {updatedAssignTo.Id}" + $": {updatedAssignTo.Name} "
+                        };
+                        _dbContext.Logs.Add(log);
+                    }
+                    else
+                    {
+                        var log = new Log
+                        {
+                            TaskId = tasks.Id,
+                            Message = $" {Accessor.Name} Added AssignTo  {updatedAssignTo.Id}" +
+                            $": {updatedAssignTo.Name} "
+                        };
+                        _dbContext.Logs.Add(log);
+                    }
+                }
+                if (previousSprintId != tasks.SprintId)
+                {
+                    var Updatedsprint = await _dbContext.Sprints.Where(s => s.Id == tasks.SprintId).FirstOrDefaultAsync();
+                    if (previousSprint != null)
+                    {
+                        var log = new Log
+                        {
+                            TaskId = tasks.Id,
+                            Message = $" {Accessor.Name} Changed Sprint from {previousSprintId} : {previousSprint.Name} to {Updatedsprint.Id}" + $": {Updatedsprint.Name} "
+                        };
+                        _dbContext.Logs.Add(log);
+                    }
+                    else
+                    {
+                        var log = new Log
+                        {
+                            TaskId = tasks.Id,
+                            Message = $" {Accessor.Name} Added Srpint  {Updatedsprint.Id}" +
+                            $": {Updatedsprint.Name} "
+                        };
+                        _dbContext.Logs.Add(log);
+                    }
+                }
                 await _dbContext.SaveChangesAsync();
                 return tasks.Id;
             }

@@ -24,7 +24,7 @@ namespace ManagementAPI.Contract.Dtos
         public int ProjectId { get; set; }
         public string? Description { get; set; } = null;
 
-        [Range(0, int.MaxValue, ErrorMessage = "ParentId should be greater than or equal to 0")]
+        [Range(1, int.MaxValue, ErrorMessage = "ParentId should be greater than 0")]
         public int? ParentId { get; set; } = null;
 
         [Range(0, 4, ErrorMessage = "Task Type is invalid should be between 0-4")]
@@ -38,5 +38,11 @@ namespace ManagementAPI.Contract.Dtos
 
         [Range(0, int.MaxValue, ErrorMessage = "Remaining hours cannot be less than 0")]
         public int ? RemainingHours { get; set; } = null;
+        [Range(1, int.MaxValue, ErrorMessage = "SprintId cannot be less than 1")]
+        public int? SprintId { get; set; } = null;
+        [Range(1, int.MaxValue, ErrorMessage = "AssignTo cannot be less than 1")]
+        public int? AssignTo { get; set; } = null;
+
+
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Employee_Role;
 using ManagementAPI.Contract.Dtos;
+using ManagementAPI.Contract.Models;
 using ManagementAPI.Contract.Responses;
 using System;
 using System.Collections.Generic;
@@ -20,6 +21,10 @@ namespace ManagementAPI.Contract.Interfaces
         public Task<bool> DeleteTasks(int id ,int AccessingId, EmployeeRole Role);
 
         public Task<(int, List<GetTaskDto>?)> getTasks(int  projectId, int TaskId , bool children);
+        public  Task<bool> CheckManagerOfEmployee(int managerId, int? employeeId);
+        public  Task<bool> CheckTeamMemberOfProject(int Member1Id, int? Member2Id, int ProjectId);
+        public  Task<int> CheckTaskAccess(EmployeeRole Role, Tasks tasks, int AccessingId, Project project);
+
 
 
 

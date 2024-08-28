@@ -37,6 +37,7 @@ namespace ManagementAPI.Provider.Services
                 new Claim(ClaimTypes.Role, employee.Role.ToString()),
                 new Claim("Name", employee.Name),
                 new Claim("Id", employee.Id.ToString()),
+                new Claim("Role" ,employee.Role.ToString()),
                 new Claim("Guid", Guid.NewGuid().ToString()),
 
             };

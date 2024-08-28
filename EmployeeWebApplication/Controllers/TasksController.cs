@@ -235,6 +235,16 @@ public class TasksController : ControllerBase
                 response.Message = "Parent Id is invalid";
                 return NotFound(response);
             }
+            else if ( tskid == -13)
+            {
+                response.Message = "Sprint Id is invalid or not found aligned with given project Id";
+                return NotFound(response);
+            }
+            else if( tskid == -14)
+            {
+                response.Message = "AssignToId is invalid or not aligned with project member Id ";
+                return NotFound(response);
+            }
             else if( tskid == -99)
             {
                 response.Message = "Cannot Make a Task Parent to itself";
