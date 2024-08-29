@@ -36,12 +36,27 @@ namespace ManagementAPI.Provider.Services
 
         }
         public IQueryable<GetTaskDto>? ApplyFiltering(IQueryable<GetTaskDto>? tasks, TaskPaginatedDto PDto,
-            int assingedTo)
+            int assignedTo)
         {
             string? filterQuery = PDto.filterQuery;
+            if (PDto.status == null)
+            {
+                PDto.status = new List<TasksStatus>();
+            }
             List<TasksStatus>? Status = PDto.status;
+            Status.Add(TasksStatus.Pending);
+            if (PDto.AssignedTo == null)
+            {
+                PDto.AssignedTo = new List<int>();
+            }
+            PDto.AssignedTo.Add(assignedTo);
+            if( PDto.type== null)
+            {
+                PDto.type = new List<TaskTypes>();
+            }
             List<TaskTypes>? Type = PDto.type;
-            List<int>? AssignedTo = PDto.AssignedTo != null && PDto.AssignedTo.Count() != 0 ? PDto.AssignedTo.Where(e => e != 0).ToList() : null;
+            Type.Add(TaskTypes.Epic);
+            List<int>? AssignedTo = PDto.AssignedTo != null ? PDto.AssignedTo.Where(e => e != 0).ToList() : null;
             bool assigned = PDto.Assigned;
             int? SprintId = PDto.SprintId;
             int? ParentId = PDto.ParentId;
@@ -80,7 +95,7 @@ namespace ManagementAPI.Provider.Services
             }
             if (AssignedTo != null && AssignedTo.Count != 0)
             {
-                tasks = tasks.Where(t => AssignedTo.Contains(Convert.ToInt32(t.AssignedToId)));
+                tasks = tasks.Where(t =>  AssignedTo.Contains((t.AssignedToId.Value)));
             }
             if (string.IsNullOrEmpty(filterQuery) == false)
             {
@@ -219,10 +234,13 @@ namespace ManagementAPI.Provider.Services
                 {
                     return false;
                 }
-                var Member2Exists = await _dbContext.ProjectEmployees.FirstOrDefaultAsync(p => p.ProjectID == ProjectId && p.EmployeeID == Member2Id);
-                if (Member2Exists == null)
+                if (Member2Id != null)
                 {
-                    return false;
+                    var Member2Exists = await _dbContext.ProjectEmployees.FirstOrDefaultAsync(p => p.ProjectID == ProjectId && p.EmployeeID == Member2Id);
+                    if (Member2Exists == null)
+                    {
+                        return false;
+                    }
                 }
                 return true;
             }
@@ -239,8 +257,8 @@ namespace ManagementAPI.Provider.Services
 
                 string? SortBy = PDto.SortBy;
                 bool IsAscending = PDto.IsAscending;
-                int pageNumber = PDto.pageNumber == 0 ? 1 : PDto.pageNumber;
-                int pageSize = PDto.pageSize == 0 ? 10 : PDto.pageSize;
+                int pageNumber = PDto.pageNumber <= 0 ? 1 : PDto.pageNumber;
+                int pageSize = PDto.pageSize <= 0 ? 10 : PDto.pageSize;
                 int ProjectId = PDto.ProjectID;
                 int count = 0;
                 var tasks = _dbContext.Taasks.Include(e => e.AssignedBy)
@@ -266,16 +284,18 @@ namespace ManagementAPI.Provider.Services
                 count = await tasks.CountAsync();
 
 
-
                 if (Role != EmployeeRole.SuperAdmin)
                 {
-                    tasks = tasks.Where(t => t.AssignedToId == assignedTo);
-                    /*tasks = tasks.Where(t => t.AssignedById == assignedTo || t.AssignedToId == assignedTo);*/
-                    count = await tasks.CountAsync();
+                    bool checkMember = await CheckTeamMemberOfProject(assignedTo, null,ProjectId);
+                    if (!checkMember)
+                    {
+                        return (-1,null); ;
+                    }
 
                 }
                 tasks = ApplyFiltering(tasks, PDto, assignedTo);
                 tasks = ApplySorting(tasks, SortBy, IsAscending);
+                count = tasks.Count();
                 var skipResult = (pageNumber - 1) * pageSize;
                 return (count, await tasks.Skip(skipResult).Take(pageSize).ToListAsync());
             }
