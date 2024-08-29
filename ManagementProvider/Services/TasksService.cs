@@ -41,7 +41,7 @@ namespace ManagementAPI.Provider.Services
             string? filterQuery = PDto.filterQuery;
             List<TasksStatus>? Status = PDto.status;
             List<TaskTypes>? Type = PDto.type;
-            List<int?>? AssignedTo = PDto.AssignedTo.Where(e => e != 0).ToList();
+            List<int>? AssignedTo = PDto.AssignedTo != null && PDto.AssignedTo.Count() != 0 ? PDto.AssignedTo.Where(e => e != 0).ToList() : null;
             bool assigned = PDto.Assigned;
             int? SprintId = PDto.SprintId;
             int? ParentId = PDto.ParentId;
@@ -78,9 +78,9 @@ namespace ManagementAPI.Provider.Services
             {
                 tasks = tasks.Where(t => Type.Contains(t.Type));
             }
-            if (AssignedTo.Count != 0)
+            if (AssignedTo != null && AssignedTo.Count != 0)
             {
-                tasks = tasks.Where(t => AssignedTo.Contains(t.AssignedToId));
+                tasks = tasks.Where(t => AssignedTo.Contains(Convert.ToInt32(t.AssignedToId)));
             }
             if (string.IsNullOrEmpty(filterQuery) == false)
             {
@@ -242,7 +242,6 @@ namespace ManagementAPI.Provider.Services
                 int pageNumber = PDto.pageNumber == 0 ? 1 : PDto.pageNumber;
                 int pageSize = PDto.pageSize == 0 ? 10 : PDto.pageSize;
                 int ProjectId = PDto.ProjectID;
-                List<int?>? AssignedTo = PDto.AssignedTo.Where(e => e != 0).ToList();
                 int count = 0;
                 var tasks = _dbContext.Taasks.Include(e => e.AssignedBy)
                     .Include(e => e.AssignedTo)

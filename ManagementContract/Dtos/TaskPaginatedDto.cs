@@ -30,7 +30,7 @@ Status: multi-select.*/
         public List<TasksStatus>? status { get; set; } = null;
         public List<TaskTypes>? type { get; set; } = null;
         public bool Assigned { get; set; } = true;
-        public List<int?> ? AssignedTo { get; set; } = null;
+        public List<int> ? AssignedTo { get; set; } = null;
 
         [Range (0,int.MaxValue,ErrorMessage = "Sprint Id should be greater than or equal to 0")]
         public int? SprintId { get; set; } = null;
