@@ -57,7 +57,7 @@ public class Program
         var config = provider.GetRequiredService<IConfiguration>();
 
         builder.Services.AddControllers();
-
+        builder.Services.AddHttpContextAccessor();
         // Add services to the container.bearer
         builder.Services.AddDbContext<dbContext>(options =>
         options.UseSqlServer(builder.Configuration.GetConnectionString("connectionString")));
@@ -73,6 +73,13 @@ public class Program
         builder.Services.AddScoped<IPaginatedService,PaginatedServices>();
         builder.Services.AddScoped<ISprintServices, SprintServices>();
         builder.Services.AddScoped<ILoggerServices, LoggerServices>();
+        builder.Services.AddScoped<IJwtService, JwtService>();
+        builder.Services.AddSingleton<ISortingService, SortingService>();
+
+        //builder.Services.AddScoped<IHttpContextAccessor, HttpContextAccessor>();
+        //it is architecture of httpaccessor to be a register and resolved as singleton it will give you error cause it is registerd as singleton and resolved as scope , to avoid that error only use singleton or make a custome scoped register which is not recommended
+        //builder.Services.AddScoped<IHttpContextAccessor, CustomHttpContextAccessor>(); //still not working
+
 
 
 

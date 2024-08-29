@@ -29,11 +29,11 @@ namespace ManagementAPI.Provider.Services
     public class TasksService : ITasksServices
     {
         private readonly dbContext _dbContext;
-
-        public TasksService(dbContext db)
+        private readonly ISortingService SortingService;
+        public TasksService(dbContext db ,ISortingService sortingservice)
         {
             _dbContext = db;
-
+            SortingService = sortingservice;
         }
         public IQueryable<GetTaskDto>? ApplyFiltering(IQueryable<GetTaskDto>? tasks, TaskPaginatedDto PDto,
             int assignedTo)
@@ -50,7 +50,7 @@ namespace ManagementAPI.Provider.Services
                 PDto.AssignedTo = new List<int>();
             }
             PDto.AssignedTo.Add(assignedTo);
-            if( PDto.type== null)
+            if (PDto.type == null)
             {
                 PDto.type = new List<TaskTypes>();
             }
@@ -95,7 +95,7 @@ namespace ManagementAPI.Provider.Services
             }
             if (AssignedTo != null && AssignedTo.Count != 0)
             {
-                tasks = tasks.Where(t =>  AssignedTo.Contains((t.AssignedToId.Value)));
+                tasks = tasks.Where(t => AssignedTo.Contains((t.AssignedToId.Value)));
             }
             if (string.IsNullOrEmpty(filterQuery) == false)
             {
@@ -249,52 +249,60 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
-        public async Task<(int, List<GetTaskDto>)> GetAllTasks(EmployeeRole Role, int assignedTo, TaskPaginatedDto PDto)
+        public async Task<(int, List<GetTaskDto>?)> GetAllTasks(EmployeeRole Role, int assignedTo, TaskPaginatedDto PDto)
         {
             try
             {
-
-
+                // storing variables for filtering , sorting and pagination
                 string? SortBy = PDto.SortBy;
                 bool IsAscending = PDto.IsAscending;
                 int pageNumber = PDto.pageNumber <= 0 ? 1 : PDto.pageNumber;
                 int pageSize = PDto.pageSize <= 0 ? 10 : PDto.pageSize;
                 int ProjectId = PDto.ProjectID;
                 int count = 0;
-                var tasks = _dbContext.Taasks.Include(e => e.AssignedBy)
-                    .Include(e => e.AssignedTo)
-                    .Where(e => e.ProjectId == ProjectId && e.IsActive == true)
-                 .Select(e => new GetTaskDto
-                 {
-                     Id = e.Id,
-                     Name = e.Name,
-                     AssignedById = e.AssignedById,
-                     AssignedToId = e.AssignedToId,
-                     Assigned_From = e.AssignedBy.Name,
-                     Assigned_To = e.AssignedTo.Name,
-                     CreatedOn = e.CreatedOn,
-                     Description = e.Description,
-                     Status = e.Status,
-                     ParentId = e.ParentId,
-                     ProjectId = e.ProjectId,
-                     SprintId = e.SprintId,
-                     Type = e.TaskType
 
-                 }).AsQueryable();
-                count = await tasks.CountAsync();
-
-
+                // checking access of task
                 if (Role != EmployeeRole.SuperAdmin)
                 {
-                    bool checkMember = await CheckTeamMemberOfProject(assignedTo, null,ProjectId);
+                    bool checkMember = await CheckTeamMemberOfProject(assignedTo, null, ProjectId);
                     if (!checkMember)
                     {
-                        return (-1,null); ;
+                        return (-1, null); ;
                     }
-
                 }
+
+                // if task is accessible fetching the task of a given project Id
+                var tasks = _dbContext.Taasks
+                    .Include(e => e.AssignedBy)
+                    .Include(e => e.AssignedTo)
+                    
+                    .Where(e => e.ProjectId == ProjectId && e.IsActive == true)
+                    .Select(e => new GetTaskDto
+                    {
+                        Id = e.Id,
+                        Name = e.Name,
+                        AssignedById = e.AssignedById,
+                        AssignedToId = e.AssignedToId,
+                        Assigned_From = e.AssignedBy.Name,
+                        Assigned_To = e.AssignedTo.Name,
+                        CreatedOn = e.CreatedOn,
+                        Description = e.Description,
+                        Status = e.Status,
+                        ParentId = e.ParentId,
+                        ProjectId = e.ProjectId,
+                        SprintId = e.SprintId,
+                        Type = e.TaskType,
+                        
+
+                    }).AsQueryable();
+                count = await tasks.CountAsync();
+
+                
+                //apply filtering according to type,status,sprint,AssignedTo,assigned,unassigned,date,parenttask
                 tasks = ApplyFiltering(tasks, PDto, assignedTo);
-                tasks = ApplySorting(tasks, SortBy, IsAscending);
+                
+                //apply sorting 
+                tasks = SortingService.ApplySorting(tasks, SortBy, IsAscending);
                 count = tasks.Count();
                 var skipResult = (pageNumber - 1) * pageSize;
                 return (count, await tasks.Skip(skipResult).Take(pageSize).ToListAsync());
@@ -568,7 +576,7 @@ namespace ManagementAPI.Provider.Services
                 }
                 return 1;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 throw ex;
             }
@@ -638,11 +646,11 @@ namespace ManagementAPI.Provider.Services
                 // all the above have the access the update the task
 
                 int checkAccess = await CheckTaskAccess(Role, tasks, AccessingId, project);
-                if(checkAccess <0)
+                if (checkAccess < 0)
                 {
                     return checkAccess;
                 }
-                
+
                 // if task is accessible
                 // if user want to task type ->parent id is needed expect if task type is epic
                 if (dto.type != null)
@@ -755,7 +763,7 @@ namespace ManagementAPI.Provider.Services
                     }
                     tasks.AssignedToId = assignTo.Id;
                 }
-                
+
                 //
                 //
                 // Adding Logs for changes
@@ -799,19 +807,19 @@ namespace ManagementAPI.Provider.Services
                             $": {UpdatedParent.Name} "
                         };
                         _dbContext.Logs.Add(log);
-                        
+
                     }
                     else
                     {
-                        
-                            var log = new Log
-                            {
-                                TaskId = tasks.Id,
-                                Message = $" {Accessor.Name} Added Parent Task  {UpdatedParent.Id}" +
-                                $": {UpdatedParent.Name} "
-                            };
-                            _dbContext.Logs.Add(log);
-                        
+
+                        var log = new Log
+                        {
+                            TaskId = tasks.Id,
+                            Message = $" {Accessor.Name} Added Parent Task  {UpdatedParent.Id}" +
+                            $": {UpdatedParent.Name} "
+                        };
+                        _dbContext.Logs.Add(log);
+
                     }
                     {
                         var log = new Log

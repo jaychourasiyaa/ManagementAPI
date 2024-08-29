@@ -98,6 +98,16 @@ namespace ManagementAPI.Provider.Database
             .WithMany()
             .HasForeignKey( t=> t.TaskId)
             .OnDelete(DeleteBehavior.Restrict);
+           /* modelBuilder.Entity<Tasks>()
+            .HasOne(t => t.Creator)
+            .WithMany()
+            .HasForeignKey(t => t.CreatedBy)
+            .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Tasks>()
+            .HasOne(t => t.Updater)
+            .WithMany()
+            .HasForeignKey(t => t.UpdatedBy)
+            .OnDelete(DeleteBehavior.Restrict);*/
         }
     }
     

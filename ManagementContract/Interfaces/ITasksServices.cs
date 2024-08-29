@@ -13,7 +13,7 @@ namespace ManagementAPI.Contract.Interfaces
 {
     public interface ITasksServices
     {
-        public Task<(int,List<GetTaskDto?>)> GetAllTasks(EmployeeRole Role , int assignedTo, TaskPaginatedDto dto);
+        public Task<(int,List<GetTaskDto>?)> GetAllTasks(EmployeeRole Role , int assignedTo, TaskPaginatedDto dto);
         public Task<int> AddTasks(AddTasksDtos dtos, int assignedBy);       
         public Task<int> UpdateTasks(UpdateTasksDto dto, int id, int AccessingId, EmployeeRole Role);
         public Task<List<GetTaskByIdDto>?> GetTaskById(int assigneToId);

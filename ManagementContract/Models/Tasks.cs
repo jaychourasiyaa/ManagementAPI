@@ -38,10 +38,14 @@ public class Tasks : BaseEntity
     [ForeignKey(nameof(SprintId))]
     
     public int ? SprintId  { get; set; }
-
     public int EstimateHours { get; set; } = 0;
     public int RemainingHours { get; set; } = 0;
     public virtual ICollection<TasksReview> Reviews { get; set; }
+
+    [ForeignKey(nameof(CreatedBy))]
+    public Employee Creator;
+    [ForeignKey(nameof(UpdatedBy))]
+    public Employee Updater;
     
     public Employee AssignedBy;
     public Employee AssignedTo;

@@ -19,33 +19,35 @@ namespace ManagementAPI.Controllers;
 [ApiController]
 public class TasksController : ControllerBase
 {
-    private readonly dbContext _dbContext;
+   
     private readonly ITasksServices tasksService;
-    public TasksController(dbContext db, ITasksServices tasksservices)
+    private readonly IJwtService jwtService;
+    public TasksController( ITasksServices tasksservices ,IJwtService jwtservice)
     {
-        _dbContext = db;
         tasksService = tasksservices;
+        jwtService = jwtservice;
     }
     [HttpPost("GetAllTasks")]
-
     public async Task<ActionResult<PaginatedApiRespones<List<GetTaskDto>?>>> Get(TaskPaginatedDto dto)
     {
         var respones = new PaginatedApiRespones<List<GetTaskDto>?>();
         try
         {
-            EmployeeRole Role = EmployeeRole.Employee;
-            var RoleClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-            if (Enum.TryParse(typeof(EmployeeRole), RoleClaim, true, out var RoleEnum))
-            {
-                Role = (EmployeeRole)RoleEnum;
-            }
-            int assignedTo = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
+            //fetching role and userid from claim using jwt service 
+            EmployeeRole Role = jwtService.UserRole;
+            int assignedTo = jwtService.UserId;
+
+            //calling service that return all tasks rolewise with filtering , sorting , pagination
             (int, List<GetTaskDto>?) result = await tasksService.GetAllTasks(Role, assignedTo, dto);
+
+            // if not task found 
             if (result.Item2 == null)
             {
                 respones.Message = "No Task Found";
                 return NotFound(respones);
             }
+
+            // returning fetched task
             respones.Message = "Task Fetched";
             respones.TotalEntriesCount = result.Item1;
             respones.Data = result.Item2;
@@ -57,36 +59,19 @@ public class TasksController : ControllerBase
             respones.Message = ex.Message;
             return BadRequest(respones);
         }
-        /*var tasks = tasksService.GetAllTasks();
-        return Ok(tasks);*/
     }
-    /*[HttpPost("SelfTaskAssign")]*/
-    /*public async Task<ActionResult<ApiRespones<int>>> SelfTask (AddTasksDtos dto)
-    {
-        var response = new ApiRespones<int >();
-        try
-        {
-            int assignedBy = int.Parse(User.Claims.FirstOrDefault(e => e.Type == "Id")?.Value);
-            var result = tasksService.AssignSelfTask(dto, assignedBy );
-            response.Message = "Task Assigned to self";
-            response.Data = result;
-            return Ok(response);    
-        }
-        catch(Exception ex)
-        {
-            response.Message = ex.Message;
-            response.Success = false;
-            return BadRequest(response);
-        }
-    }*/
+    
     [HttpPost]
-    public async Task<ActionResult<ApiRespones<int?>>> Add(AddTasksDtos tasksDtos)
+    public async Task<ActionResult<ApiRespones<int?>>> Add(AddTasksDtos dto)
     {
         var response = new ApiRespones<int?>();
         try
         {
+            // fetching logged in employee id from claims
             int assignedBy = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
-            int tskid = await tasksService.AddTasks(tasksDtos, assignedBy);
+            
+            //calling service that can add task 
+            int tskid = await tasksService.AddTasks(dto, assignedBy);
             if (tskid == -1)
             {
                 response.Message = "Given Task Type must required a parent id";
@@ -146,6 +131,8 @@ public class TasksController : ControllerBase
                 response.Message = "Sprint Id is invalid or sprint id is not of same project id";
                 return NotFound(response);
             }
+
+            // adding task and sending respones accordingly
             response.Message = "Task Added";
             response.Data = tskid;
             return Ok(response);
@@ -157,12 +144,14 @@ public class TasksController : ControllerBase
             return BadRequest(response);
         }
     }
+
     [HttpPut("{id}")]
     public async Task<ActionResult<ApiRespones<int?>>> Update(UpdateTasksDto dto, int id)
     {
         var response = new ApiRespones<int?>();
         try
         {
+            // fetching logged in employee id and role form claims
             int AccessingId = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
             EmployeeRole Role = EmployeeRole.Employee;
             var RoleClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
@@ -170,6 +159,8 @@ public class TasksController : ControllerBase
             {
                 Role = (EmployeeRole)RoleEnum;
             }
+            
+            //calling service that can update task
             int tskid = await tasksService.UpdateTasks(dto, id, AccessingId, Role);
             if (tskid == -1)
             {
@@ -250,6 +241,8 @@ public class TasksController : ControllerBase
                 response.Message = "Cannot Make a Task Parent to itself";
                 return Conflict(response);
             }
+
+            // task got updated sending respones accordingly
             response.Message = "Task Status Updated";
             response.Data = tskid;
             return Ok(response);
@@ -262,13 +255,14 @@ public class TasksController : ControllerBase
             return BadRequest(response);
         }
     }
+
     [HttpDelete("{id}")]
     public async Task<ActionResult<ApiRespones<bool?>>> Delete(int id)
     {
         var response = new ApiRespones<bool?>();
-
         try
         {
+            // fetching logged in employee id and role
             int AccessingId = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
             EmployeeRole Role = new EmployeeRole();
             var RoleClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
@@ -276,11 +270,12 @@ public class TasksController : ControllerBase
             {
                 Role = (EmployeeRole)RoleEnum;
             }
+
+            // calling service to delete the task
             bool Deleted = await tasksService.DeleteTasks(id, AccessingId, Role);
 
             if (!Deleted)
             {
-
                 response.Message = "Task Id is wrong or Task is unaccessible to delete";
                 return NotFound(response);
             }
@@ -296,33 +291,8 @@ public class TasksController : ControllerBase
         }
 
     }
-    [HttpGet("GetById")]
-    public async Task<ActionResult<ApiRespones<List<GetTaskByIdDto>?>>> GetbyId()
-    {
-        var response = new ApiRespones<List<GetTaskByIdDto>?>();
-        try
-        {
-            var assignedTo = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
-            var result = await tasksService.GetTaskById(assignedTo);
-            if (result.Count == 0)
-            {
-                response.Message = "No Tasks Founed";
-                return NotFound(response);
-            }
-            response.Message = "Tasks Fetched";
-            response.Data = result;
 
-            return Ok(response);
-        }
-        catch (Exception ex)
-        {
-            response.Success = false;
-            response.Message = ex.Message;
-            return BadRequest(response);
-        }
-    }
-    [HttpPost("GetProjectTasks")]
-    [Authorize(Roles = "SuperAdmin")]
+    [HttpPost("GetParentChildren")]
     public async Task<ActionResult<PaginatedApiRespones<List<GetTaskDto>?>>> GetTasks(GetParentChildrenTask dto)
     {
         var respones = new PaginatedApiRespones<List<GetTaskDto>?>();
@@ -356,5 +326,31 @@ public class TasksController : ControllerBase
             return BadRequest(respones);
         }
     }
+    /*[HttpGet("GetById")]
+    public async Task<ActionResult<ApiRespones<List<GetTaskByIdDto>?>>> GetById()
+    {
+        var response = new ApiRespones<List<GetTaskByIdDto>?>();
+        try
+        {
+            var assignedTo = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
+            var result = await tasksService.GetTaskById(assignedTo);
+            if (result.Count == 0)
+            {
+                response.Message = "No Tasks Founed";
+                return NotFound(response);
+            }
+            response.Message = "Tasks Fetched";
+            response.Data = result;
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            response.Success = false;
+            response.Message = ex.Message;
+            return BadRequest(response);
+        }
+    }*/
+    
 
 }
