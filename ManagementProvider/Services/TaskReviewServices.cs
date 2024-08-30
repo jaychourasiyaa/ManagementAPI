@@ -16,40 +16,39 @@ using Taask_status;
 using ManagementAPI.Contract.Models;
 namespace ManagementAPI.Provider.Services
 {
-    public class TaskReviewServices : ITaskReviewServices 
+    public class TaskReviewServices : ITaskReviewServices
     {
         private readonly dbContext _dbContext;
         private readonly ITasksServices tasksServices;
-        public TaskReviewServices(dbContext db, ITasksServices ts)
+        private readonly IJwtService JwtService;
+        public TaskReviewServices(dbContext db, ITasksServices ts, IJwtService jwtservice)
         {
             _dbContext = db;
             tasksServices = ts;
+            JwtService = jwtservice;
         }
-        public async Task<List<GetTaskReviewDto>?> GetTaskReview(EmployeeRole Role, int AccessingId)
+        public async Task<List<GetTaskReviewDto>?> GetTaskReview(int id)
         {
-
             try
             {
                 // getting list of reviews for a task 
-                var tasksreview = _dbContext.TasksReviews.Include(e => e.Reviewer).Include(e => e.Tasks)
-                                    .Select(e => new GetTaskReviewDto
-                                    {
-                                        Id = e.Id,
-                                        TaskId = e.Tasks.Id,
-                                        ReviewById = e.Reviewer.Id,
-                                        ReviewerName = e.Reviewer.Name,
-                                        Comments = e.Comments,
-                                        AssignedToId = e.Tasks.AssignedToId,
-                                        AssignedById = e.Tasks.AssignedById,
-
-
-                                    }).AsQueryable();
+                var tasksreview = _dbContext.TasksReviews
+                    .Include(e => e.Reviewer)
+                    .Include(e => e.Tasks)
+                    .Where(e=> e.TasksId == id)
+                    .Select(e => new GetTaskReviewDto
+                    {
+                        Id = e.Id,
+                        ReviewerName = e.Reviewer.Name,
+                        Comments = e.Comments,
+                        dateTime = e.CreatedOn,
+                    }).AsQueryable();
 
                 // if employee role is  not superadmin filtering tasks
-                if (Role != EmployeeRole.SuperAdmin)
+                /*if (Role != EmployeeRole.SuperAdmin)
                 {
                     tasksreview = tasksreview.Where(t => t.AssignedToId == AccessingId || t.AssignedToId == AccessingId);
-                }
+                }*/
                 return await tasksreview.ToListAsync();
             }
             catch (Exception ex)
@@ -57,52 +56,56 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
-
-        public async Task<int?> AddTaskReview(AddTaskReviewDto tasksReviewDtos, EmployeeRole Role, int accessingId )
+        public async Task<int?> AddTaskReview(AddTaskReviewDto tasksReviewDtos)
         {
             try
             {
-                var accessor =await _dbContext.Employees.Where(e=> e.Id ==  accessingId && e.IsActive).FirstOrDefaultAsync();
+                // checking valid person is logged in
+                var accessor = await _dbContext.Employees.Where(e => e.Id == JwtService.UserId && e.IsActive).FirstOrDefaultAsync();
                 if (accessor == null)
                 {
                     return -1;
                 }
+
                 // checking tasks to be reviewed exists or not
                 var tasks = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == tasksReviewDtos.TasksId);
-
                 if (tasks == null || tasks.IsActive == false)
-                { 
+                {
                     return -2;
                 }
+
                 var project = await _dbContext.Projects.Where(p => p.Id == tasks.ProjectId)
                     .FirstOrDefaultAsync();
-                if( project == null)
+                if (project == null)
                 {
                     return -3;
                 }
-                // only legit person can reveiw the task ,whether a superadmin or the task assigner or task assigni or the manager or assigni or team member of same project
-                int checkAccess = await tasksServices.CheckTaskAccess(Role,tasks,accessingId,project);
-                if( checkAccess < 0)
+
+                // only legit person can reveiw the task
+                // -- whether a superadmin
+                // -- or the task assigner
+                // -- or task assignee
+                // -- or the manager of assignee
+                // -- or team member of same project
+
+                int checkAccess = await tasksServices.CheckTaskAccess(JwtService.UserRole, tasks, JwtService.UserId, project);
+                // return positive value if accessible
+                if (checkAccess < 0)
                 {
                     return checkAccess;
                 }
-                /*if (Role != EmployeeRole.SuperAdmin)
-                {
-                    if (tasks.AssignedToId != accessingId && tasks.AssignedById != accessingId)
-                    {
-                        int assingedToId = Convert.ToInt32(tasks.AssignedToId);
-                        bool checkManager = await tasksServices.CheckManagerOfEmployee(assingedToId, accessingId);
-                        bool checkTeamMember = await tasksServices.CheckTeamMemberOfProject(accessingId, assingedToId, project.Id);
-                    }
-                }*/
+
+                // adding review in task
                 var tasksReview = new TasksReview
                 {
                     TasksId = tasksReviewDtos.TasksId,
-                    ReviewBy = accessingId,
+                    ReviewBy = JwtService.UserId,
                     Comments = tasksReviewDtos.Comments,
-                    CreatedBy = accessingId,
+                    CreatedBy = JwtService.UserId,
 
                 };
+
+                // add log for creating review in a task
                 var log = new Log
                 {
                     TaskId = tasks.Id,
@@ -118,62 +121,38 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
-        
-        public async Task<bool> DeleteTaskReview(int aceessingId, int reviewId)
+        public async Task<bool> UpdateTaskReview(int TaskId, int CommentId, string comments)
         {
             try
             {
-                var typeess = TasksStatus.Completed.ToString();
-                Console.WriteLine(typeess);
-                var employee = await _dbContext.Employees.FirstOrDefaultAsync(e => e.Id == aceessingId);
-                if (employee == null || employee.IsActive == false)
+                // checking if legit person is logged in or not
+                var accessor = await _dbContext.Employees.FirstOrDefaultAsync(e => e.Id == JwtService.UserId || e.IsActive);
+                if (accessor == null)
                 {
                     return false;
                 }
-                var taskReview = _dbContext.TasksReviews.Include(t => t.Tasks).FirstOrDefault(t => t.Id == reviewId);
-                if (taskReview == null) return false;
-                if (employee.Role != EmployeeRole.SuperAdmin)
-                {
-                    if (taskReview.ReviewBy!= aceessingId)
-                    {
-                        return false;
-                    }
-                }
-                _dbContext.TasksReviews.Remove(taskReview);
-                await _dbContext.SaveChangesAsync();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                throw ex;
-            }
-        }
-        public async Task<bool> UpdateTaskReview(int accessingId, int TaskId, int CommentId, string comments, string Role)
-        {
-            try
-            {
-                var accessor = await _dbContext.Employees.FirstOrDefaultAsync( e=> e.Id == accessingId || e.IsActive);
-                if( accessor == null ) 
-                { 
-                    return false;
-                }
+
+                // checking if task and taskreview id is valid or not
                 var taskReview = await _dbContext.TasksReviews.Where(t => t.Id == CommentId && t.TasksId == TaskId)
                     .FirstOrDefaultAsync();
-
                 if (taskReview == null)
                 {
                     return false;
                 }
-                if ( Role != "SuperAdmin")
+
+                // checking if the task is accessible or not
+                if (JwtService.UserRole != EmployeeRole.SuperAdmin)
                 {
-                    if (accessingId != taskReview.ReviewBy)
+                    if (JwtService.UserId != taskReview.ReviewBy)
                     {
                         return false;
                     }
                 }
                 string previousComment = taskReview.Comments;
                 taskReview.Comments = comments;
-                if( previousComment != taskReview.Comments )
+
+                // if done any changes in comment adding log for it
+                if (previousComment != taskReview.Comments)
                 {
                     var log = new Log
                     {
@@ -183,6 +162,38 @@ namespace ManagementAPI.Provider.Services
                     };
                     await _dbContext.Logs.AddAsync(log);
                 }
+                await _dbContext.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+        public async Task<bool> DeleteTaskReview(int reviewId)
+        {
+            try
+            {
+                // checking if legit person is logged in
+                var employee = await _dbContext.Employees.FirstOrDefaultAsync(e => e.Id == JwtService.UserId);
+                if (employee == null || employee.IsActive == false)
+                {
+                    return false;
+                }
+
+                // task review to be deleted must be a valid review
+                var taskReview = _dbContext.TasksReviews.Include(t => t.Tasks).FirstOrDefault(t => t.Id == reviewId);
+                if (taskReview == null) return false;
+
+                // checking task accessiblity
+                if (employee.Role != EmployeeRole.SuperAdmin)
+                {
+                    if (taskReview.ReviewBy != JwtService.UserId)
+                    {
+                        return false;
+                    }
+                }
+                _dbContext.TasksReviews.Remove(taskReview);
                 await _dbContext.SaveChangesAsync();
                 return true;
             }

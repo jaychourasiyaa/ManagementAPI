@@ -108,6 +108,7 @@ namespace ManagementAPI.Provider.Database
             .WithMany()
             .HasForeignKey(t => t.UpdatedBy)
             .OnDelete(DeleteBehavior.Restrict);*/
+           
         }
     }
     

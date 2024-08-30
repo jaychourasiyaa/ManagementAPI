@@ -19,21 +19,15 @@ namespace ManagementAPI.Controllers
             _dbContext = db;
             this.taskReviewServices = taskReviewServices;
         }
-        [HttpGet]
-        public async Task<ActionResult<ApiRespones<List<GetTaskReviewDto>?>>> Get()
+        [HttpGet("{id}")]
+        public async Task<ActionResult<ApiRespones<List<GetTaskReviewDto>?>>> Get(int id)
         {
             var response = new ApiRespones<List<GetTaskReviewDto>?>();
 
             try
             {
-                int accessingId = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
-                EmployeeRole Role = new EmployeeRole();
-                var RoleClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-                if (Enum.TryParse(typeof(EmployeeRole), RoleClaim, true, out var RoleEnum))
-                {
-                    Role = (EmployeeRole)RoleEnum;
-                }
-                var taskReview = await taskReviewServices.GetTaskReview(Role, accessingId);
+                // calling service that fetches all reveiew of a task
+                var taskReview = await taskReviewServices.GetTaskReview(id);
                 response.Message = "TaskReview Fetcehd";
                 response.Data = taskReview;
                 return Ok(response);
@@ -45,21 +39,14 @@ namespace ManagementAPI.Controllers
                 return BadRequest(response);
             }
         }
+
         [HttpPost]
         public async Task<ActionResult<ApiRespones<int?>>> Add(AddTaskReviewDto taskReviewDtos)
         {
             var respones = new ApiRespones<int?>();
-
             try
             {
-                int accessingId = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
-                EmployeeRole Role = new EmployeeRole();
-                var RoleClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-                if (Enum.TryParse(typeof(EmployeeRole), RoleClaim, true, out var RoleEnum))
-                {
-                    Role = (EmployeeRole)RoleEnum;
-                }
-                var tasksReviewId = await taskReviewServices.AddTaskReview(taskReviewDtos, Role, accessingId);
+                var tasksReviewId = await taskReviewServices.AddTaskReview(taskReviewDtos);
                 if (tasksReviewId == -1)
                 {
                     respones.Message = "Task Id is invalid";
@@ -82,14 +69,40 @@ namespace ManagementAPI.Controllers
             }
         }
 
+        [HttpPut]
+        public async Task<ActionResult<ApiRespones<bool>>> Update(UpdateTaskReview dto)
+        {
+            var response = new ApiRespones<bool>();
+            try
+            {
+                var result = await taskReviewServices.UpdateTaskReview(dto.TaskId, dto.CommentId, dto.Comment);
+
+                if (result == false)
+                {
+                    response.Message = "Task Review Id is invalid or inaccessible";
+                    return NotFound(response);
+                }
+                response.Message = "Review Updated";
+                response.Data = result;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Message = ex.Message;
+                return BadRequest(response);
+
+            }
+        }
+
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiRespones<bool>>> Delete(int id)
         {
             var respones = new ApiRespones<bool>();
             try
             {
-                int accessingId = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
-                bool deleted = await taskReviewServices.DeleteTaskReview(accessingId, id);
+                
+                bool deleted = await taskReviewServices.DeleteTaskReview(id);
                 if (!deleted)
                 {
                     respones.Message = "Task Review Id is invalid or inaccessible";
@@ -107,33 +120,7 @@ namespace ManagementAPI.Controllers
                 return BadRequest(respones);
             }
         }
-        [HttpPut]
-        public async Task<ActionResult<ApiRespones<bool>>> Update( UpdateTaskReview dto)
-        {
-            var response = new ApiRespones<bool>();
-            try
-            {
-                int accessingId = Convert.ToInt32(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
-                var Role = User.Claims.FirstOrDefault(c => c.Type == "Role")?.Value;
-                var result = await taskReviewServices.UpdateTaskReview(accessingId,dto.TaskId,dto.CommentId, dto.Comment,Role);
-                
-                if( result == false )
-                {
-                    response.Message = "Task Review Id is invalid or inaccessible";
-                    return NotFound(response);
-                }
-                response.Message = "Review Updated";
-                response.Data = result;
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                response.Success = false;
-                response.Message = ex.Message;
-                return BadRequest(response);
 
-            }
-        }
     }
 }
 

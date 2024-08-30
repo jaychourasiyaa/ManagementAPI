@@ -11,6 +11,7 @@ namespace ManagementAPI.Contract.Interfaces
     {
        public int UserId { get; }
        public EmployeeRole UserRole { get; }
+       public string Name { get; }
     }
 
 }

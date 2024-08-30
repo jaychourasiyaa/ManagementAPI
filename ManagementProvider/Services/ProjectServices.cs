@@ -26,17 +26,17 @@ namespace ManagementAPI.Provider.Services
     public class ProjectServices : IProjectServices
     {
         private readonly dbContext _dbContext;
-
-        public ProjectServices(dbContext db)
+        private readonly IJwtService JwtService;
+        public ProjectServices(dbContext db, IJwtService jwtService)
         {
             _dbContext = db;
-
+            JwtService = jwtService;
         }
-        public IQueryable<GetProjectDetailsDto>? ApplyFiltering(IQueryable<GetProjectDetailsDto>? projects, string? filterOn, string? filterQuery , DateTime? startDate, DateTime? endDate)
+        public IQueryable<GetProjectDetailsDto>? ApplyFiltering(IQueryable<GetProjectDetailsDto>? projects, string? filterOn, string? filterQuery, DateTime? startDate, DateTime? endDate)
         {
-            if( startDate != null && endDate != null )
+            if (startDate != null && endDate != null)
             {
-                projects = projects.Where( p=> p.CreatedOn >= startDate && p.CreatedOn <= endDate );
+                projects = projects.Where(p => p.CreatedOn >= startDate && p.CreatedOn <= endDate);
             }
             if (string.IsNullOrEmpty(filterQuery) == false)
             {
@@ -68,7 +68,7 @@ namespace ManagementAPI.Provider.Services
                             throw new Exception("Invalid Status ID specified.");
                         }
                     }
-                    else if( filterQuery != "")
+                    else if (filterQuery != "")
                     {
                         // Normalize filterQuery to match enum names case insensitively
                         var normalizedFilterQuery = filterQuery.Trim().ToLowerInvariant();
@@ -77,9 +77,9 @@ namespace ManagementAPI.Provider.Services
                             .Cast<ProjectStatus>()
                             .FirstOrDefault(role => role.ToString().ToLowerInvariant() == normalizedFilterQuery);
 
-                       /* if (matchingStatus != default(ProjectStatus))
-                        {*/
-                            projects = projects.Where(e => e.Status == matchingStatus);
+                        /* if (matchingStatus != default(ProjectStatus))
+                         {*/
+                        projects = projects.Where(e => e.Status == matchingStatus);
                         /*}
                         else
                         {
@@ -115,9 +115,9 @@ namespace ManagementAPI.Provider.Services
                     employee = IsAscending ? employee.OrderBy(e => e.Id) :
                         employee.OrderByDescending(e => e.Id);
                 }
-               
-                
-               
+
+
+
             }
             return employee;
         }
@@ -140,10 +140,11 @@ namespace ManagementAPI.Provider.Services
             }
             return true;
         }
-        public async Task<int> AddProject(AddProjectDto addProjectDto , int createdBy)
+        public async Task<int> CheckInputDetails(AddProjectDto addProjectDto)
         {
             try
             {
+                int createdBy = JwtService.UserId;
                 // checking if the person making project exists in database or not
                 var projectMaker = await _dbContext.Employees
                     .Where(e => e.Id == createdBy)
@@ -162,51 +163,53 @@ namespace ManagementAPI.Provider.Services
 
                 // by default the  empty list contains 0 removing that , 
                 // considering null if user has passed 0 in list
-                List<int> employeeIds = addProjectDto.Members.Where(p => p != 0).Distinct().ToList();
+                addProjectDto.Members = addProjectDto.Members.Where(p => p != 0).Distinct().ToList();
 
-                
-               // cheking if the memeber id to be assigned to the project is a valid id or not
-                foreach (var employeeId in employeeIds)
+                // cheking if the memeber id to be assigned to the project is a valid id or not
+                foreach (var employeeId in addProjectDto.Members)
                 {
                     var employee = await _dbContext.Employees.Where(e => e.Id == employeeId).FirstOrDefaultAsync();
 
                     // if not valid or soft deleted returning -2
-                    if (employee == null || !employee.IsActive )
+                    if (employee == null || !employee.IsActive)
                     {
                         return -2;
                     }
-                    
-                }
-     
-                
-                
 
-                var Project = new Project
-                {
-                    Name = addProjectDto.Name,
-                    Description = addProjectDto.Description,
-                    AssignedById = createdBy,
-                    Status = addProjectDto.Status,
-                    CreatedBy = createdBy
-
-                };
-                await _dbContext.AddAsync(Project);
-                await _dbContext.SaveChangesAsync();
-                if (employeeIds.Count > 0)
-                {
-                    foreach (var employeeId in employeeIds)
-                    {
-                        var projectemployee = new ProjectEmployee { EmployeeID = employeeId, ProjectID = Project.Id };
-                        _dbContext.ProjectEmployees.Add(projectemployee);
-                    }
                 }
-                await _dbContext.SaveChangesAsync();
-                return Project.Id;
+                return 1;
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message);
+                throw ex;
             }
+        }
+        public async Task<int?> GetCountStatusWise(int status)
+        {
+            int? count = 0;
+            if (status == 0)
+            {
+                count = await _dbContext.Projects
+                              .Where(p => p.Status == ProjectStatus.Created)
+                              .CountAsync();
+            }
+            else if (status == 1)
+            {
+                count = await _dbContext.Projects
+                             .Where(p => p.Status == ProjectStatus.Running)
+                             .CountAsync();
+            }
+            else if (status == 2)
+            {
+                count = await _dbContext.Projects
+                             .Where(p => p.Status == ProjectStatus.Completed)
+                             .CountAsync();
+            }
+            else
+            {
+                return null;
+            }
+            return count;
         }
         public async Task<ProjectDetailsByIdDto?> GetById(int id)
         {
@@ -232,16 +235,16 @@ namespace ManagementAPI.Provider.Services
                     }).ToList();
                 var projectDetails = new ProjectDetailsByIdDto
                 {
-                  
+
 
                     Name = project.Name,
                     Description = project.Description,
                     CreatedBy = project.ProjectMaker.Name,
-                 
+
                     CreatedOn = project.CreatedOn,
                     Status = project.Status,
                     ProjectEmployee = project.ProjectEmployee
-                    .Select(e => new IdandNameDto { Name = e.Employee.Name, Id = e.Employee.Id}).ToList(),
+                    .Select(e => new IdandNameDto { Name = e.Employee.Name, Id = e.Employee.Id }).ToList(),
                 };
 
                 return projectDetails;
@@ -251,13 +254,13 @@ namespace ManagementAPI.Provider.Services
                 throw new Exception(ex.Message);
             }
         }
-        public async Task<(int,List<GetProjectDetailsDto>?)> GetAllProject(int employeeId, PaginatedGetDto dto)
+        public async Task<(int, List<GetProjectDetailsDto>?)> GetAllProject(PaginatedGetDto dto)
         {
 
             try
             {
                 string? filterOn = "";
-                if (dto.filterOn.Equals("Status" , StringComparison.OrdinalIgnoreCase))
+                if (dto.filterOn.Equals("Status", StringComparison.OrdinalIgnoreCase))
                 {
                     filterOn = "Status";
                 }
@@ -266,12 +269,12 @@ namespace ManagementAPI.Provider.Services
                 bool IsAscending = dto.IsAscending;
                 int pageNumber = dto.pageNumber <= 0 ? 1 : dto.pageNumber;
                 int pageSize = dto.pageSize <= 0 ? 10 : dto.pageSize;
-                string ? additonalSearch = dto.additionalSearch;
+                string? additonalSearch = dto.additionalSearch;
                 DateTime? startDate = dto.startDate;
                 DateTime? endDate = dto.endDate;
 
                 // getting project of an employee role wise
-                var employee = await _dbContext.Employees.FirstOrDefaultAsync(e => e.Id == employeeId);
+                var employee = await _dbContext.Employees.FirstOrDefaultAsync(e => e.Id == JwtService.UserId);
                 int count = 0;
 
                 // if employee is null or soft deleted returning false
@@ -284,16 +287,19 @@ namespace ManagementAPI.Provider.Services
                 // if employee role is super admin giving all project to them
                 if (employee != null && employee.Role == EmployeeRole.SuperAdmin)
                 {
-                    projects = _dbContext.Projects.Include(p => p.ProjectEmployee).ThenInclude(pe => pe.Employee).Select(p => new GetProjectDetailsDto
-                    {
-                        Id = p.Id,
-                        Name = p.Name,
-                        Description = p.Description,
-                        CreatedBy = p.ProjectMaker.Name,
-                        CreatedOn = p.CreatedOn,
-                     
-                        Status = p.Status,
-                        ProjectEmployee = p.ProjectEmployee
+                    projects = _dbContext.Projects
+                        .Include(p => p.ProjectEmployee)
+                        .ThenInclude(pe => pe.Employee)
+                        .Select(p => new GetProjectDetailsDto
+                        {
+                            Id = p.Id,
+                            Name = p.Name,
+                            Description = p.Description,
+                            CreatedBy = p.ProjectMaker.Name,
+                            CreatedOn = p.CreatedOn,
+
+                            Status = p.Status,
+                            ProjectEmployee = p.ProjectEmployee
                             .Where(p => p.IsActive == true)
                             .Select(e => new IdandNameDto
                             {
@@ -302,9 +308,9 @@ namespace ManagementAPI.Provider.Services
 
                             }).ToList()
 
-                    }).AsQueryable();
+                        }).AsQueryable();
                     count = await projects.CountAsync();
-                   /* return projects.ToList();*/
+                    /* return projects.ToList();*/
                 }
                 else
                 {
@@ -313,64 +319,134 @@ namespace ManagementAPI.Provider.Services
                         .Where(e => e.AdminId == employee.Id)
                         .Select(e => e.Id)
                         .ToList();
-                    employeeUnderManager.Add(employeeId);
+                    employeeUnderManager.Add(JwtService.UserId);
 
                     // fetching their project and their downline project if employee is manager
-                     projects = _dbContext.Projects
-                                  .Include(p => p.ProjectEmployee)
-                                  .ThenInclude(pe => pe.Employee)
-                                  .Distinct()
-                                  .Where(p => p.ProjectEmployee.Any(pe => employeeUnderManager.Contains(pe.EmployeeID)))
-                                   .Select(p => new GetProjectDetailsDto
-                                   {
+                    projects = _dbContext.Projects
+                                 .Include(p => p.ProjectEmployee)
+                                 .ThenInclude(pe => pe.Employee)
+                                 .Distinct()
+                                 .Where(p => p.ProjectEmployee.Any(pe => employeeUnderManager.Contains(pe.EmployeeID)))
+                                  .Select(p => new GetProjectDetailsDto
+                                  {
 
-                                       Id = p.Id,
-                                       Name = p.Name,
-                                       Description = p.Description,
-                                       CreatedBy = p.ProjectMaker.Name,
-                                       CreatedOn = p.CreatedOn,
-                                      
-                                       Status = p.Status,
-                                       ProjectEmployee = p.ProjectEmployee
-                                       .Where(p => p.IsActive == true)
-                                       .Select(pe => new IdandNameDto
-                                       {
-                                           Name = pe.Employee.Name,
-                                           Id = pe.Employee.Id,
+                                      Id = p.Id,
+                                      Name = p.Name,
+                                      Description = p.Description,
+                                      CreatedBy = p.ProjectMaker.Name,
+                                      CreatedOn = p.CreatedOn,
 
-                                       }).ToList()
+                                      Status = p.Status,
+                                      ProjectEmployee = p.ProjectEmployee
+                                      .Where(p => p.IsActive == true)
+                                      .Select(pe => new IdandNameDto
+                                      {
+                                          Name = pe.Employee.Name,
+                                          Id = pe.Employee.Id,
 
-                                   }).AsQueryable();
+                                      }).ToList()
 
-                    count= await projects.CountAsync();
-                    
+                                  }).AsQueryable();
+
+                    count = await projects.CountAsync();
+
                 }
                 /*if (projects == null) 
                     return null;*/
-                
-                projects = ApplyFiltering(projects,filterOn,filterQuery , startDate, endDate);
+
+                projects = ApplyFiltering(projects, filterOn, filterQuery, startDate, endDate);
                 projects = ApplySorting(projects, SortBy, IsAscending);
-                if( additonalSearch != "")
+                if (additonalSearch != "")
                 {
                     projects = projects.Where(e => e.Name.Contains(additonalSearch)
                    || e.CreatedBy.Contains(additonalSearch));
                 }
-                var skipResult = (pageNumber - 1) * pageSize; 
-                return  (count,await projects.Skip(skipResult).Take(pageSize).ToListAsync());
+                var skipResult = (pageNumber - 1) * pageSize;
+                return (count, await projects.Skip(skipResult).Take(pageSize).ToListAsync());
             }
-            catch ( Exception ex)
+            catch (Exception ex)
             {
                 throw new Exception(ex.Message);
             }
         }
+        public async Task<int> AddProject(AddProjectDto addProjectDto)
+        {
+            try
+            {
+                int createdBy = JwtService.UserId;
+                int checkInput = await CheckInputDetails(addProjectDto);
+                if (checkInput <0)
+                {
+                    return checkInput;
+                }
+                
+                /*// checking if the person making project exists in database or not
+                var projectMaker = await _dbContext.Employees
+                    .Where(e => e.Id == createdBy)
+                    .FirstOrDefaultAsync();
 
+                // if not exists or soft deleted or not a superadmin returing -1 to controller
+                if (projectMaker == null || !projectMaker.IsActive
+                    || projectMaker.Role != EmployeeRole.SuperAdmin)
+                {
+                    return -1;
+                }
+
+                // if project status is not valid status != pending , running , completed
+                if (Convert.ToInt32(addProjectDto.Status) < 0 || Convert.ToInt32(addProjectDto.Status) > 2)
+                    return -3;
+
+                // by default the  empty list contains 0 removing that , 
+                // considering null if user has passed 0 in list
+                
+
+
+                // cheking if the memeber id to be assigned to the project is a valid id or not
+                foreach (var employeeId in employeeIds)
+                {
+                    var employee = await _dbContext.Employees.Where(e => e.Id == employeeId).FirstOrDefaultAsync();
+
+                    // if not valid or soft deleted returning -2
+                    if (employee == null || !employee.IsActive)
+                    {
+                        return -2;
+                    }
+
+                }*/
+                var Project = new Project
+                {
+                    Name = addProjectDto.Name,
+                    Description = addProjectDto.Description,
+                    AssignedById = createdBy,
+                    Status = addProjectDto.Status,
+                    CreatedBy = createdBy
+
+                };
+                await _dbContext.AddAsync(Project);
+                await _dbContext.SaveChangesAsync();
+                if (addProjectDto.Members.Count > 0)
+                {
+                    foreach (var employeeId in addProjectDto.Members)
+                    {
+                        var projectemployee = new ProjectEmployee { EmployeeID = employeeId, ProjectID = Project.Id };
+                        _dbContext.ProjectEmployees.Add(projectemployee);
+                    }
+                }
+                await _dbContext.SaveChangesAsync();
+                return Project.Id;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
         public async Task<int?> UpdateProject(int projectId, AddProjectDto dto, int updatedBy)
         {
             try
             {
                 // checking if provided project id is valid or not
                 var project = await _dbContext.Projects.FirstOrDefaultAsync(p => p.Id == projectId);
-                
+
                 // if project not found 
                 if (project == null) return -1;
 
@@ -397,7 +473,7 @@ namespace ManagementAPI.Provider.Services
                                 EmployeeID = employeeId,
                                 ProjectID = projectId
                             };
-                             project.ProjectEmployee.Add(projectemployee);
+                            project.ProjectEmployee.Add(projectemployee);
                         }
                     }
                     else return -2;
@@ -415,44 +491,20 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
 
-    }
-        public async  Task<bool> DeleteMember( int employeeId , int  projectId )
+        }
+        public async Task<bool> DeleteMember(int employeeId, int projectId)
         {
-            var employee = await _dbContext.ProjectEmployees.Where( p=> p.EmployeeID == employeeId 
-                            && p.ProjectID == projectId && p.IsActive).FirstOrDefaultAsync();
+            var employee = await _dbContext.ProjectEmployees
+                .Where(p => p.EmployeeID == employeeId
+                            && p.ProjectID == projectId && p.IsActive)
+                .FirstOrDefaultAsync();
             if (employee == null) return false;
             employee.IsActive = false;
             await _dbContext.SaveChangesAsync();
             return true;
         }
-        public async Task<int?> GetCountStatusWise(int status)
-        {
-            int? count = 0;
-            if (status == 0)
-            {
-                count = await _dbContext.Projects
-                              .Where(p => p.Status == ProjectStatus.Created )
-                              .CountAsync();
-            }
-            else if (status == 1)
-            {
-                count = await _dbContext.Projects
-                             .Where(p => p.Status == ProjectStatus.Running)
-                             .CountAsync();
-            }
-            else if (status == 2)
-            {
-                count = await _dbContext.Projects
-                             .Where(p=> p.Status == ProjectStatus.Completed)
-                             .CountAsync();
-            }
-            else
-            {
-                return null;
-            }
-            return count;
-        }
-       
+
+
     }
-   
-    }
+
+}

@@ -12,9 +12,9 @@ namespace ManagementAPI.Contract.Interfaces
 {
     public interface IProjectServices
     {
-        public Task<int> AddProject(AddProjectDto addProjectDto,int createdBy);
+        public Task<int> AddProject(AddProjectDto addProjectDto);
         public Task<ProjectDetailsByIdDto?> GetById(int id);
-        public Task<(int,List<GetProjectDetailsDto>?)> GetAllProject(int employeeId , PaginatedGetDto dto);
+        public Task<(int,List<GetProjectDetailsDto>?)> GetAllProject(PaginatedGetDto dto);
         public  Task<int?> UpdateProject(int projectId, AddProjectDto dto, int updatedBy);
         public Task<bool> DeleteMember(int employeeId,int projectId);
         public Task<int?> GetCountStatusWise(int status);

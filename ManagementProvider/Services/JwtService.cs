@@ -14,6 +14,7 @@ namespace ManagementAPI.Provider.Services
     {
         public int UserId {  get; set; }
         public EmployeeRole UserRole { get; set; }
+        public string Name { get; set; }
         public JwtService(IHttpContextAccessor httpContextAccessor)
         {
             var user = httpContextAccessor.HttpContext?.User;
@@ -26,8 +27,10 @@ namespace ManagementAPI.Provider.Services
                 {
                   UserRole = (EmployeeRole)RoleEnum;
                 }
-
+                Name = user.Claims.FirstOrDefault( c=> c.Type == "Name")?.Value;
+                
             }
+
         }
     }
 }

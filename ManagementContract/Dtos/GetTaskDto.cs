@@ -20,5 +20,7 @@ namespace ManagementAPI.Contract.Dtos
         public int ? ParentId  { get; set; }
         public int ? SprintId { get; set; }
         public TaskTypes Type { get; set; }
+        public int EstimatedHours { get; set; }
+        public int RemainingHours { get; set; }
     }
 }

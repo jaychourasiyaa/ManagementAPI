@@ -24,207 +24,107 @@ using Microsoft.EntityFrameworkCore.SqlServer.Query.Internal;
 using System.Runtime.Versioning;
 using System.ComponentModel.DataAnnotations;
 using System.Data;
+using System.Net.Http.Headers;
 namespace ManagementAPI.Provider.Services
 {
     public class TasksService : ITasksServices
     {
         private readonly dbContext _dbContext;
         private readonly ISortingService SortingService;
-        public TasksService(dbContext db ,ISortingService sortingservice)
+        private readonly IJwtService JwtService;
+        public TasksService(dbContext db, ISortingService sortingservice, IJwtService jwtService)
         {
             _dbContext = db;
             SortingService = sortingservice;
+            JwtService = jwtService;
         }
         public IQueryable<GetTaskDto>? ApplyFiltering(IQueryable<GetTaskDto>? tasks, TaskPaginatedDto PDto,
             int assignedTo)
         {
-            string? filterQuery = PDto.filterQuery;
+            // if tasks query is null not need to filter
+            if (tasks == null)
+            {
+                return tasks;
+            }
+
+            // filter accordint to status 
             if (PDto.status == null)
             {
                 PDto.status = new List<TasksStatus>();
+                PDto.status.Add(TasksStatus.Running); // if status is null be default giving only running task
+                if (PDto.ParentId != null)
+                {
+                    PDto.status.Add(TasksStatus.Pending);
+                    PDto.status.Add(TasksStatus.Completed);
+                }
             }
-            List<TasksStatus>? Status = PDto.status;
-            Status.Add(TasksStatus.Pending);
-            if (PDto.AssignedTo == null)
-            {
-                PDto.AssignedTo = new List<int>();
-            }
-            PDto.AssignedTo.Add(assignedTo);
+            tasks = tasks.Where(t => PDto.status.Contains(t.Status));
+
+            // filter accordint to type
             if (PDto.type == null)
             {
                 PDto.type = new List<TaskTypes>();
+                PDto.type.Add(TaskTypes.Epic); // if type is null by default giving all epic
+                if (PDto.ParentId != null)
+                {
+                    PDto.type.Add(TaskTypes.Feature);
+                    PDto.type.Add(TaskTypes.UserStory);
+                    PDto.type.Add(TaskTypes.Task);
+                    PDto.type.Add(TaskTypes.Bugs);
+                }
             }
-            List<TaskTypes>? Type = PDto.type;
-            Type.Add(TaskTypes.Epic);
-            List<int>? AssignedTo = PDto.AssignedTo != null ? PDto.AssignedTo.Where(e => e != 0).ToList() : null;
-            bool assigned = PDto.Assigned;
-            int? SprintId = PDto.SprintId;
-            int? ParentId = PDto.ParentId;
-            DateTime? startDate = PDto.startDate;
-            DateTime? endDate = PDto.endDate;
+            tasks = tasks.Where(t => PDto.type.Contains(t.Type));
 
-            if (startDate != null && endDate != null)
+            //filter according to assigned to team member
+            List<int>? AssignedTo = PDto.AssignedTo != null ? PDto.AssignedTo.Where(e => e != 0).ToList() : null;
+            if (AssignedTo == null)
             {
-                tasks = tasks.Where(t => t.CreatedOn >= startDate && t.CreatedOn <= endDate);
+                AssignedTo = new List<int>();
+                AssignedTo.Add(assignedTo);// by default logged in users tasks
             }
-            if (assigned)
+            if (JwtService.UserRole != EmployeeRole.SuperAdmin)
+            {
+                tasks = tasks.Where(t => t.AssignedToId != null && AssignedTo.Contains((t.AssignedToId.Value)));
+            }
+
+            //date range filter search
+            if (PDto.startDate != null && PDto.endDate != null)
+            {
+                tasks = tasks.Where(t => t.CreatedOn >= PDto.startDate && t.CreatedOn <= PDto.endDate);
+            }
+
+            // assigned task search
+            if (PDto.Assigned)
             {
                 tasks = tasks.Where(t => t.AssignedToId != null);
             }
-            else
+            else // unassigned task search
             {
                 tasks = tasks.Where(t => t.AssignedToId == null);
             }
-            if (SprintId != null && SprintId != 0)
-            {
-                tasks = tasks.Where(t => t.SprintId == SprintId);
-            }
-            if (ParentId != null && ParentId != 0)
-            {
-                tasks = tasks.Where(t => t.ParentId == ParentId);
-            }
-            if (Status != null && Status.Count != 0)
-            {
-                tasks = tasks.Where(t => Status.Contains(t.Status));
 
+            // Filter accordint to a particular sprint
+            if (PDto.SprintId != null)
+            {
+                tasks = tasks.Where(t => t.SprintId == PDto.SprintId);
             }
 
-            if (Type != null && Type.Count != 0)
+            //filter accordint to particular parent
+            if (PDto.ParentId != null)
             {
-                tasks = tasks.Where(t => Type.Contains(t.Type));
+                tasks = tasks.Where(t => t.ParentId == PDto.ParentId);
             }
-            if (AssignedTo != null && AssignedTo.Count != 0)
+
+            // search on task name only
+            if (string.IsNullOrEmpty(PDto.filterQuery) == false)
             {
-                tasks = tasks.Where(t => AssignedTo.Contains((t.AssignedToId.Value)));
-            }
-            if (string.IsNullOrEmpty(filterQuery) == false)
-            {
-                if (filterQuery != "")
+                if (PDto.filterQuery != "")
                 {
-                    tasks = tasks.Where(e => e.Name.Contains(filterQuery));
+                    tasks = tasks.Where(e => e.Name.Contains(PDto.filterQuery));
                 }
             }
             return tasks;
-
-            ////
-            ////
-            ////
-            ////
-            /*if (string.IsNullOrEmpty(filterQuery) == false)
-            {
-                // filer according to name or subpart of name
-                if (filterQuery != "" )
-                {
-                    tasks = tasks.Where(e => e.Name.Contains(filterQuery));
-                }
-
-                // filter according to department or subpart of department name
-                *//*else if (filterOn.Equals("Assigned_From", StringComparison.OrdinalIgnoreCase))
-                {
-                    tasks = tasks.Where(e => e.Assigned_From.Contains(filterQuery));
-                }
-                else if (filterOn.Equals("Assigned_To", StringComparison.OrdinalIgnoreCase))
-                {
-                    tasks = tasks.Where(e => e.Assigned_To.Contains(filterQuery));
-                }*//*
-                else if (filterOn.Equals("Status", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Checking value of filterQuery is number or not
-                    if (int.TryParse(filterQuery, out var statusId))
-                    {
-                        // if number then check for valid number from 0-2
-                        if (Enum.IsDefined(typeof(TasksStatus), statusId))
-                        {
-                            var status = (TasksStatus)statusId;
-                            tasks = tasks.Where(e => e.Status == status);
-                        }
-                        else
-                        {
-                            throw new Exception("Invalid Status ID specified.");
-                        }
-                    }
-                    else
-                    {
-                        // Normalize filterQuery to match enum names case insensitively
-                        var normalizedFilterQuery = filterQuery.Trim().ToLowerInvariant();
-
-                        var matchingStatus = Enum.GetValues(typeof(TasksStatus))
-                            .Cast<TasksStatus>()
-                            .FirstOrDefault(role => role.ToString().ToLowerInvariant() == normalizedFilterQuery);
-
-                        *//* if (matchingStatus != default(ProjectStatus))
-                         {*//*
-                        tasks = tasks.Where(e => e.Status == matchingStatus);
-                        *//*}
-                        else
-                        {
-                            throw new Exception("Invalid Status name specified.");
-                        }*//*
-                    }
-                }
-
-
-            }
-            return tasks;*/
         }
-
-        public IQueryable<GetTaskDto>? ApplySorting(IQueryable<GetTaskDto>? tasks, string? SortBy,
-            bool IsAscending)
-        {
-            if (string.IsNullOrEmpty(SortBy) == false)
-            {
-                if (SortBy.Equals("Name", StringComparison.OrdinalIgnoreCase))
-                {
-
-                    tasks = IsAscending ? tasks.OrderBy(e => e.Name) : tasks.OrderByDescending(e => e.Name);
-
-                }
-                if (SortBy.Equals("CreatedOn", StringComparison.OrdinalIgnoreCase))
-                {
-                    tasks = IsAscending ? tasks.OrderBy(e => e.CreatedOn) :
-                    tasks.OrderByDescending(e => e.CreatedOn);
-
-                }
-                if (SortBy.Equals("Status", StringComparison.OrdinalIgnoreCase))
-                {
-                    tasks = IsAscending ? tasks.OrderBy(e => e.Status) :
-                        tasks.OrderByDescending(e => e.Status);
-                }
-
-                if (SortBy.Equals("Type", StringComparison.OrdinalIgnoreCase))
-                {
-                    tasks = IsAscending ? tasks.OrderBy(e => e.Type) :
-                        tasks.OrderByDescending(e => e.Type);
-                }
-                if (SortBy.Equals("AssignedBy", StringComparison.OrdinalIgnoreCase))
-                {
-                    tasks = IsAscending ? tasks.OrderBy(e => e.AssignedById) :
-                        tasks.OrderByDescending(e => e.AssignedById);
-                }
-                if (SortBy.Equals("AssingedTo", StringComparison.OrdinalIgnoreCase))
-                {
-                    tasks = IsAscending ? tasks.OrderBy(e => e.AssignedToId) :
-                        tasks.OrderByDescending(e => e.AssignedToId);
-                }
-
-
-
-            }
-            return tasks;
-        }
-
-        public async Task<bool> CheckManagerOfEmployee(int managerId, int? employeeId)
-        {
-            var manager = await _dbContext.Employees
-                .Where(e => e.Id == employeeId && e.AdminId == managerId)
-                .FirstOrDefaultAsync();
-            if (manager == null) return false;
-            return true;
-        }
-
-
-        //Member1 = Task Assigner
-        //Member2 = Task Assignee
         public async Task<bool> CheckTeamMemberOfProject(int Member1Id, int? Member2Id, int ProjectId)
         {
             try
@@ -249,73 +149,26 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
-        public async Task<(int, List<GetTaskDto>?)> GetAllTasks(EmployeeRole Role, int assignedTo, TaskPaginatedDto PDto)
+        public async Task<bool> CheckManagerOfEmployee(int managerId, int? employeeId)
         {
-            try
-            {
-                // storing variables for filtering , sorting and pagination
-                string? SortBy = PDto.SortBy;
-                bool IsAscending = PDto.IsAscending;
-                int pageNumber = PDto.pageNumber <= 0 ? 1 : PDto.pageNumber;
-                int pageSize = PDto.pageSize <= 0 ? 10 : PDto.pageSize;
-                int ProjectId = PDto.ProjectID;
-                int count = 0;
-
-                // checking access of task
-                if (Role != EmployeeRole.SuperAdmin)
-                {
-                    bool checkMember = await CheckTeamMemberOfProject(assignedTo, null, ProjectId);
-                    if (!checkMember)
-                    {
-                        return (-1, null); ;
-                    }
-                }
-
-                // if task is accessible fetching the task of a given project Id
-                var tasks = _dbContext.Taasks
-                    .Include(e => e.AssignedBy)
-                    .Include(e => e.AssignedTo)
-                    
-                    .Where(e => e.ProjectId == ProjectId && e.IsActive == true)
-                    .Select(e => new GetTaskDto
-                    {
-                        Id = e.Id,
-                        Name = e.Name,
-                        AssignedById = e.AssignedById,
-                        AssignedToId = e.AssignedToId,
-                        Assigned_From = e.AssignedBy.Name,
-                        Assigned_To = e.AssignedTo.Name,
-                        CreatedOn = e.CreatedOn,
-                        Description = e.Description,
-                        Status = e.Status,
-                        ParentId = e.ParentId,
-                        ProjectId = e.ProjectId,
-                        SprintId = e.SprintId,
-                        Type = e.TaskType,
-                        
-
-                    }).AsQueryable();
-                count = await tasks.CountAsync();
-
-                
-                //apply filtering according to type,status,sprint,AssignedTo,assigned,unassigned,date,parenttask
-                tasks = ApplyFiltering(tasks, PDto, assignedTo);
-                
-                //apply sorting 
-                tasks = SortingService.ApplySorting(tasks, SortBy, IsAscending);
-                count = tasks.Count();
-                var skipResult = (pageNumber - 1) * pageSize;
-                return (count, await tasks.Skip(skipResult).Take(pageSize).ToListAsync());
-            }
-            catch (Exception ex)
-            {
-                throw ex;
-            }
+            var manager = await _dbContext.Employees
+                .Where(e => e.Id == employeeId && e.AdminId == managerId)
+                .FirstOrDefaultAsync();
+            if (manager == null) return false;
+            return true;
         }
         public async Task<int> checkTaskHeirarchy(int? taskId, TaskTypes type, int ParentId, int ProjectId)
         {
             try
             {
+
+                // heirarchy rule
+                // -- Epic cannot have parent , task (normal) and bugs must have parent
+                // -- feature and userStory may or may not have parent
+                // -- feature must have parent of type epic
+                // -- userStory must have parent of type feature
+                // -- task and bugs must have parent of type user Story
+
                 if (type == TaskTypes.Feature)
                 {
                     var checkEpic = await _dbContext.Taasks.Where(t => t.Id == ParentId && t.TaskType == TaskTypes.Epic && t.ProjectId == ProjectId).FirstOrDefaultAsync();
@@ -380,6 +233,7 @@ namespace ManagementAPI.Provider.Services
                 if (dtos.ParentId == 0) { dtos.ParentId = null; }
                 if (dtos.SprintId == 0) { dtos.SprintId = null; }
 
+                // to create normal task or bugs parent is required
                 if (dtos.type == TaskTypes.Task || dtos.type == TaskTypes.Bugs)
                 {
                     if (dtos.ParentId == null)
@@ -387,11 +241,15 @@ namespace ManagementAPI.Provider.Services
                         return -1;
                     }
                 }
+
+                // checking person who is assigning task is valid or not
                 var manager = await _dbContext.Employees.Where(e => e.Id == assignedBy).FirstOrDefaultAsync();
                 if (manager == null || !manager.IsActive)
                 {
                     return -2;
                 }
+
+                //checking project under which task is being made is valid project or not
                 var project = await _dbContext.Projects
                    .Where(p => p.Id == dtos.ProjectId)
                    .FirstOrDefaultAsync();
@@ -399,13 +257,18 @@ namespace ManagementAPI.Provider.Services
                 {
                     return -3;
                 }
+
+                // if task is being assigned to someone need to check some requirements
                 if (dtos.AssignedToId != null)
                 {
+                    // checking the person is valid or not whom the task is being to assign
                     var employee = await _dbContext.Employees.Where(e => e.Id == dtos.AssignedToId).FirstOrDefaultAsync();
                     if (employee == null || !employee.IsActive)
                     {
                         return -4;
                     }
+
+                    // checking that the employee is memeber or project or not
                     var projectEmployee = await _dbContext.ProjectEmployees.FirstOrDefaultAsync(e => e.ProjectID == project.Id && e.EmployeeID == employee.Id);
                     if (projectEmployee == null)
                     {
@@ -434,53 +297,24 @@ namespace ManagementAPI.Provider.Services
                     }
                 }
 
+                // task type epic cannot have parent
                 if (dtos.type == TaskTypes.Epic)
                 {
                     dtos.ParentId = null;
                 }
                 else if (dtos.ParentId != null)// (dtos.type != TaskTypes.Epic)
                 {
+                    // checking for the heirarchy creiteria of task with
                     int ParentId = Convert.ToInt32(dtos.ParentId);
                     int checkTaskLevel = await checkTaskHeirarchy(null, dtos.type, ParentId, project.Id);
                     if (checkTaskLevel < 0)
                     {
                         return checkTaskLevel;
                     }
-                    /* if (dtos.type == TaskTypes.Feature)
-                     {
-                         var checkEpic = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.Epic && t.ProjectId == project.Id).FirstOrDefaultAsync();
-                         if (checkEpic == null)
-                         {
-                             return -4;
-                         }
-                     }
-                     else if (dtos.type == TaskTypes.UserStory)
-                     {
-                         var checkFeature = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.Feature && t.ProjectId == project.Id).FirstOrDefaultAsync();
-                         if (checkFeature == null)
-                         {
-                             return -5;
-                         }
-                     }
-                     else if (dtos.type == TaskTypes.Task)
-                     {
-                         var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == project.Id).FirstOrDefaultAsync();
-                         if (checkUserStory == null)
-                         {
-                             return -6;
-                         }
-                     }
-                     else if (dtos.type == TaskTypes.Bugs)
-                     {
-                         var checkUserStory = await _dbContext.Taasks.Where(t => t.Id == dtos.ParentId && t.TaskType == TaskTypes.UserStory && t.ProjectId == project.Id).FirstOrDefaultAsync();
-                         if (checkUserStory == null)
-                         {
-                             return -7;
-                         }
-                     }*/
                 }
 
-
+                //checking if task is being created under a sprint 
+                // if yes sprint must be aligned with project
                 if (dtos.SprintId != null)
                 {
                     var sprint = await _dbContext.Sprints.FirstOrDefaultAsync(s => s.Id == dtos.SprintId
@@ -491,40 +325,6 @@ namespace ManagementAPI.Provider.Services
                     }
                 }
                 return 1;
-            }
-            catch (Exception ex)
-            {
-                throw ex;
-            }
-        }
-        public async Task<int> AddTasks(AddTasksDtos dtos, int assignedBy)
-        {
-            try
-            {
-                int checkInput = await CheckInputDetails(dtos, assignedBy);
-                if (checkInput < 0)
-                {
-                    return checkInput;
-                }
-
-                var tasks = new Tasks
-                {
-                    Name = dtos.Name,
-                    AssignedById = assignedBy,
-                    AssignedToId = dtos.AssignedToId,
-                    Description = dtos.Description,
-                    TaskType = dtos.type,
-                    Status = dtos.Status,
-                    CreatedBy = assignedBy,
-                    ParentId = dtos.ParentId,
-                    ProjectId = dtos.ProjectId,
-                    SprintId = dtos.SprintId,
-                    EstimateHours = dtos.EstimateHours,
-                    RemainingHours = dtos.EstimateHours
-                };
-                await _dbContext.Taasks.AddAsync(tasks);
-                await _dbContext.SaveChangesAsync();
-                return tasks.Id;
             }
             catch (Exception ex)
             {
@@ -581,7 +381,516 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
-        public async Task<int> UpdateTasks(UpdateTasksDto dto, int id, int AccessingId, EmployeeRole Role)
+        public async Task<int> UpdateTaskDetails(Tasks tasks, UpdateTasksDto dto, int projectId)
+        {
+            try
+            {
+                // if user want to task type then, ->parent id is needed expect if task type is epic
+                if (dto.type != null)
+                {
+                    // updating task type to epic make its parent id as null
+                    if (dto.type == TaskTypes.Epic)
+                    {
+                        tasks.TaskType = TaskTypes.Epic;
+                        tasks.ParentId = null;
+                    }
+                    else
+                    {
+                        // updating to feature , user story , task ,bugs
+                        // task and bugs must required parent Id already checked above
+                        // feature and user story have parent id optional
+
+                        var type = (TaskTypes)dto.type;
+                        int ParentId = Convert.ToInt32(dto.ParentId);
+
+                        //if parent id given then it should follow task heirarcy rule
+                        if (dto.ParentId != null)
+                        {
+                            int checkTaskLevel = await checkTaskHeirarchy(tasks.Id, type, ParentId, projectId);
+                            if (checkTaskLevel < 0)
+                            {
+                                return checkTaskLevel;
+                            }
+                        }
+
+                        // if follow task level rule updating it
+                        tasks.ParentId = dto.ParentId;
+                        tasks.TaskType = (TaskTypes)dto.type;
+                    }
+                }
+
+                // checking if user want to update estimated , remaining hours or not 
+                // if yes checking that remaining hours must be less than estimated hours
+                if (dto.EstimateHours != null && dto.RemainingHours != null)
+                {
+                    if (dto.RemainingHours > dto.EstimateHours)
+                    {
+                        return -11;
+                    }
+                    tasks.EstimateHours = Convert.ToInt32(dto.EstimateHours);
+                    tasks.RemainingHours = Convert.ToInt32(dto.RemainingHours);
+                }
+                else if (dto.EstimateHours != null)
+                {
+                    if (dto.EstimateHours < tasks.RemainingHours)
+                    {
+                        return -11;
+                    }
+                    tasks.EstimateHours = Convert.ToInt32(dto.EstimateHours);
+                }
+                else if (dto.RemainingHours != null)
+                {
+                    if (dto.RemainingHours > tasks.EstimateHours)
+                    {
+                        return -11;
+                    }
+                    tasks.RemainingHours = Convert.ToInt32(dto.RemainingHours);
+                }
+
+                // if user want to update description
+                if (dto.Description != null)
+                {
+                    tasks.Description = dto.Description;
+                }
+
+                // if user want to update parent tasks only
+                if (dto.type == null && dto.ParentId != null)
+                {
+                    // checking that tobeupdated parent is valid or not
+                    var parentTask = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == dto.ParentId && t.IsActive);
+                    if (parentTask == null)
+                    {
+                        return -12;
+                    }
+
+                    //check task level rule
+                    var checkTaskLevel = await checkTaskHeirarchy(tasks.Id, tasks.TaskType, parentTask.Id, projectId);
+                    if (checkTaskLevel < 0)
+                    {
+                        return checkTaskLevel;
+                    }
+
+                    //if pass all creiteria updating parent
+                    tasks.ParentId = parentTask.Id;
+                }
+
+                // updating the status directly cause input dto is already checking value from 0-2
+                int status = Convert.ToInt32(dto.Status);
+                if (status == 0)
+                {
+                    tasks.Status = TasksStatus.Pending;
+                }
+                else if (status == 1)
+                {
+                    tasks.Status = TasksStatus.Running;
+                }
+                else
+                {
+                    tasks.Status = TasksStatus.Completed;
+                }
+
+                //if user want to update sprint of a task then to be updated sprint id must be of same project
+                if (dto.SprintId != null)
+                {
+                    var sprint = await _dbContext.Sprints.Where(s => s.Id == dto.SprintId && s.ProjectId == tasks.ProjectId).FirstOrDefaultAsync();
+                    if (sprint == null)
+                    {
+                        return -13;
+                    }
+                    tasks.SprintId = sprint.Id;
+                }
+
+                // if task assignee to be updated
+                if (dto.AssignTo != null)
+                {
+                    // checking the to be updated assignee is valid or not
+                    var assignTo = await _dbContext.Employees.Where(e => e.Id == dto.AssignTo).FirstOrDefaultAsync();
+                    if (assignTo == null)
+                    {
+                        return -14;
+                    }
+
+                    // checking if to be updated assignee is in same project or not
+                    var checkProjectMember = await _dbContext.ProjectEmployees.FirstOrDefaultAsync(p => p.ProjectID == projectId && p.EmployeeID == assignTo.Id);
+                    if (checkProjectMember == null)
+                    {
+                        return -14;
+                    }
+                    tasks.AssignedToId = assignTo.Id;
+                }
+                return 1;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+        public async Task<(int, List<GetTaskDto>?)> GetAllTasks(TaskPaginatedDto PDto)
+        {
+            try
+            {
+                // storing variables for pagination
+                int pageNumber = PDto.pageNumber <= 0 ? 1 : PDto.pageNumber;
+                int pageSize = PDto.pageSize <= 0 ? 10 : PDto.pageSize;
+                int count = 0;
+
+                // checking for valid project 
+                var project = await _dbContext.Projects.FirstOrDefaultAsync(p => p.Id == PDto.ProjectID);
+                if (project == null)
+                {
+                    return (0, null);
+                }
+
+                // checking access of task
+                if (JwtService.UserRole != EmployeeRole.SuperAdmin)
+                {
+                    bool checkMember = await CheckTeamMemberOfProject(JwtService.UserId, null, project.Id);
+                    if (!checkMember)
+                    {
+                        return (-1, null);
+                    }
+                }
+
+                // if task is accessible fetching the task of a given project Id
+                var tasks = _dbContext.Taasks
+                    .Include(e => e.AssignedBy)
+                    .Include(e => e.AssignedTo)
+                    .Where(e => e.ProjectId == PDto.ProjectID && e.IsActive == true)
+                    .Select(e => new GetTaskDto
+                    {
+                        Id = e.Id,
+                        Name = e.Name,
+                        AssignedById = e.AssignedById,
+                        AssignedToId = e.AssignedToId,
+                        Assigned_From = e.AssignedBy.Name,
+                        Assigned_To = e.AssignedTo.Name,
+                        CreatedOn = e.CreatedOn,
+                        Description = e.Description,
+                        Status = e.Status,
+                        ParentId = e.ParentId,
+                        ProjectId = e.ProjectId,
+                        SprintId = e.SprintId,
+                        Type = e.TaskType,
+                        EstimatedHours = e.EstimateHours,
+                        RemainingHours = e.RemainingHours
+                    }).AsQueryable();
+
+                if (tasks == null)
+                {
+                    return (0, null);
+                }
+                count = await tasks.CountAsync();
+
+                //apply filtering according to type,status,sprint,AssignedTo,assigned,unassigned,date,parenttask
+                
+                tasks = ApplyFiltering(tasks, PDto, JwtService.UserId);
+                
+                if (tasks == null)
+                {
+                    return (0, null);
+                }
+
+                //apply sorting 
+                if (string.IsNullOrEmpty(PDto.SortBy) == false && PDto.SortBy != "")
+                {
+                    tasks = SortingService.ApplySorting(tasks, PDto.SortBy, PDto.IsAscending);
+                }
+                count = tasks.Count();
+
+                //apply pagination
+                var skipResult = (pageNumber - 1) * pageSize;
+                return (count, await tasks.Skip(skipResult).Take(pageSize).ToListAsync());
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+        public async Task<(int, List<GetTaskDto>?)> GetParentChildTask(int projectId, int taskId, bool children)
+        {
+            try
+            {
+
+                List<GetTaskDto>? resultTasks = new List<GetTaskDto>();
+
+                //  checking if project id is valid or not
+                var project = await _dbContext.Projects.Where(p => p.Id == projectId).FirstOrDefaultAsync();
+                if (project == null)
+                {
+                    return (-1, null);
+                }
+
+                // checking if task id is valid or not
+                var tasks = await _dbContext.Taasks.Where(t => t.Id == taskId && t.ProjectId == projectId).FirstOrDefaultAsync();
+                if (tasks == null)
+                {
+                    return (-2, null);
+                }
+
+                int count = 0;
+                var type = tasks.TaskType;
+                var toFindType = new TaskTypes();
+                bool flag = true;
+
+                // fetching all task first
+                var query = _dbContext.Taasks.Where(t => t.ProjectId == projectId)
+                            .Select(t => new GetTaskDto
+                            {
+                                Id = t.Id,
+                                Name = t.Name,
+                                Description = t.Description,
+                                AssignedById = t.AssignedById,
+                                AssignedToId = t.AssignedToId,
+                                Assigned_From = t.AssignedBy.Name,
+                                Assigned_To = t.AssignedTo.Name,
+                                CreatedOn = t.CreatedOn,
+                                ParentId = t.ParentId,
+                                ProjectId = t.ProjectId,
+                                Status = t.Status,
+                                Type = t.TaskType,
+                            }).AsQueryable();
+                count = resultTasks.Count;
+
+                //filtering according to type 
+
+                //  if user want children of task
+                if (children && type != TaskTypes.Task && type != TaskTypes.Bugs) // want children
+                {
+
+                    if (type == TaskTypes.UserStory)
+                    {
+                        // if task type is userstory then children can be both normal task or bugs
+                        query = query.Where(t => t.Type == toFindType || t.Type == TaskTypes.Bugs);
+                        flag = false;
+                    }
+                    else
+                    {
+                        toFindType = (TaskTypes)(Convert.ToInt32(type) + 1); // in heirarchy child is one level down 
+                        query = query.Where(t => t.Type == toFindType);
+                        flag = false;
+
+                    }
+                }
+                //if user want parent of task
+                else if (children == false && type != TaskTypes.Epic)// want parent
+                {
+
+
+                    if (type == TaskTypes.Task || type == TaskTypes.Bugs)
+                    {
+                        // if type is task or bug task type bugs or normal task both have parent of userstory type
+                        query = query.Where(t => t.Type == TaskTypes.UserStory);
+                        flag = false;
+                    }
+                    else
+                    {
+                        toFindType = (TaskTypes)(Convert.ToInt32(type) - 1); // parent is one level up in heirarchy
+                        query = query.Where(t => t.Type == toFindType);
+                        flag = false;
+                    }
+                }
+                if (flag) // exceptional case
+                {
+                    return (0, null);
+                }
+                resultTasks = await query.ToListAsync();
+                count = query.Count();
+                return (count, resultTasks);
+
+
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+        public async Task<int> AddTasks(AddTasksDtos dtos)
+        {
+            try
+            {
+                int checkInput = await CheckInputDetails(dtos, JwtService.UserId); // return positive value if all input is correct
+                if (checkInput < 0)
+                {
+                    return checkInput;
+                }
+
+                // if all parameter is passed creating a task
+                var tasks = new Tasks
+                {
+                    Name = dtos.Name,
+                    AssignedById = JwtService.UserId,
+                    AssignedToId = dtos.AssignedToId,
+                    Description = dtos.Description,
+                    TaskType = dtos.type,
+                    Status = dtos.Status,
+                    CreatedBy = JwtService.UserId,
+                    ParentId = dtos.ParentId,
+                    ProjectId = dtos.ProjectId,
+                    SprintId = dtos.SprintId,
+                    EstimateHours = dtos.EstimateHours,
+                    RemainingHours = dtos.EstimateHours
+                };
+
+                // adding task into database
+                await _dbContext.Taasks.AddAsync(tasks);
+                await _dbContext.SaveChangesAsync();
+
+                //creating log of task creation
+                var log = new Log
+                {
+                    TaskId = tasks.Id,
+                    Message = $"{JwtService.Name} Created task Name : {tasks.Name} Type : {tasks.TaskType} Status : {tasks.Status}"
+                };
+                await _dbContext.Logs.AddAsync(log);
+                await _dbContext.SaveChangesAsync();
+                return tasks.Id;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+        public async Task<bool> AddLog(Tasks tasks, PreviousTaskValueDto dto)
+        {
+            try
+            {
+                if (dto.EHours != tasks.EstimateHours)
+                {
+                    var log = new Log
+                    {
+                        TaskId = tasks.Id,
+                        Message = $" {JwtService.Name} Changed Estimated Hours from {dto.EHours} to {tasks.EstimateHours} "
+                    };
+                    await _dbContext.Logs.AddAsync(log);
+                }
+                if (dto.RHours != tasks.RemainingHours)
+                {
+                    var log = new Log
+                    {
+                        TaskId = tasks.Id,
+                        Message = $" {JwtService.Name} Changed Remaining Hours from {dto.RHours} to {tasks.RemainingHours} "
+                    };
+                    await _dbContext.Logs.AddAsync(log);
+                }
+                if (dto.TaskType != tasks.TaskType)
+                {
+                    var log = new Log
+                    {
+                        TaskId = tasks.Id,
+                        Message = $" {JwtService.Name} Changed Task Type from {dto.TaskType.ToString()}  to {tasks.TaskType.ToString()}"
+                    };
+                    await _dbContext.Logs.AddAsync(log);
+                }
+                var UpdatedParent = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == tasks.ParentId);
+                if (dto.ParentId != tasks.ParentId)
+                {
+
+                    if (dto.Parent != null)
+                    {
+                        var log = new Log
+                        {
+                            TaskId = tasks.Id,
+                            Message = $" {JwtService.Name} Changed Parent Task from {dto.Parent.Id} : {dto.Parent.Name} to {UpdatedParent.Id}" +
+                            $": {UpdatedParent.Name} "
+                        };
+                        await _dbContext.Logs.AddAsync(log);
+
+                    }
+                    else
+                    {
+
+                        var log = new Log
+                        {
+                            TaskId = tasks.Id,
+                            Message = $" {JwtService.Name} Added Parent Task  {UpdatedParent.Id}" +
+                            $": {UpdatedParent.Name} "
+                        };
+                        await _dbContext.Logs.AddAsync(log);
+
+                    }
+                    {
+                        var log = new Log
+                        {
+                            TaskId = tasks.Id,
+                            Message = $" {JwtService.Name} Added Child Task {tasks.Id} : {tasks.Name}" +
+                            $" in {UpdatedParent.Id} " +
+                                $": {UpdatedParent.Name} "
+                        };
+                        await _dbContext.Logs.AddAsync(log);
+                    }
+                }
+                if (dto.Description != tasks.Description)
+                {
+                    var log = new Log
+                    {
+                        TaskId = tasks.Id,
+                        Message = $" {JwtService.Name} Changed Description from {dto.Description}  to {tasks.Description}"
+                    };
+                    _dbContext.Logs.Add(log);
+                }
+                if (dto.TaskStatus != tasks.Status)
+                {
+                    var log = new Log
+                    {
+                        TaskId = tasks.Id,
+                        Message = $" {JwtService.Name} Changed Status from {dto.TaskStatus.ToString()}  to {tasks.Status.ToString()}"
+                    };
+                    await _dbContext.Logs.AddAsync(log);
+                }
+                if (dto.AssignToId != tasks.AssignedToId)
+                {
+                    var updatedAssignTo = await _dbContext.Employees.Where(e => e.Id == tasks.AssignedToId).FirstOrDefaultAsync();
+                    if (dto.AssignTo != null)
+                    {
+                        var log = new Log
+                        {
+                            TaskId = tasks.Id,
+                            Message = $" {JwtService.Name} Changed AssingTo from {dto.AssignToId} : {dto.AssignTo.Name} to {updatedAssignTo.Id}" + $": {updatedAssignTo.Name} "
+                        };
+                        await _dbContext.Logs.AddAsync(log);
+                    }
+                    else
+                    {
+                        var log = new Log
+                        {
+                            TaskId = tasks.Id,
+                            Message = $" {JwtService.Name} Added AssignTo  {updatedAssignTo.Id}" +
+                            $": {updatedAssignTo.Name} "
+                        };
+                        await _dbContext.Logs.AddAsync(log);
+                    }
+                }
+                if (dto.SprintId != tasks.SprintId)
+                {
+                    var Updatedsprint = await _dbContext.Sprints.Where(s => s.Id == tasks.SprintId).FirstOrDefaultAsync();
+                    if (dto.Sprint != null)
+                    {
+                        var log = new Log
+                        {
+                            TaskId = tasks.Id,
+                            Message = $" {JwtService.Name} Changed Sprint from {dto.SprintId} : {dto.Sprint.Name} to {Updatedsprint.Id}" + $": {Updatedsprint.Name} "
+                        };
+                        _dbContext.Logs.Add(log);
+                    }
+                    else
+                    {
+                        var log = new Log
+                        {
+                            TaskId = tasks.Id,
+                            Message = $" {JwtService.Name} Added Srpint  {Updatedsprint.Id}" +
+                            $": {Updatedsprint.Name} "
+                        };
+                        _dbContext.Logs.Add(log);
+                    }
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+        public async Task<int> UpdateTasks(UpdateTasksDto dto, int id)
         {
             try
             {
@@ -604,7 +913,7 @@ namespace ManagementAPI.Provider.Services
                     }
                 }
                 // checking that the legit person is logged in
-                var Accessor = await _dbContext.Employees.FirstOrDefaultAsync(e => e.Id == AccessingId && e.IsActive);
+                var Accessor = await _dbContext.Employees.FirstOrDefaultAsync(e => e.Id == JwtService.UserId && e.IsActive);
                 if (Accessor == null)
                 {
                     return -3;
@@ -625,17 +934,21 @@ namespace ManagementAPI.Provider.Services
                 }
 
                 // storing previous value for comparison after updation to generate log
-                int previousEHours = tasks.EstimateHours;
-                int previousRHours = tasks.RemainingHours;
-                string previousDescription = tasks.Description;
-                int? previousParentId = tasks.ParentId;
-                TaskTypes previousTaskType = tasks.TaskType;
-                TasksStatus previousTaskStatus = tasks.Status;
-                var PreviousParent = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == tasks.ParentId);
-                var previousSprint = await _dbContext.Sprints.FirstOrDefaultAsync(s => s.Id == tasks.SprintId);
-                int? previousSprintId = tasks.SprintId;
-                var previousAssignTo = await _dbContext.Employees.FirstOrDefaultAsync(e => e.Id == tasks.AssignedToId);
-                int? previousAssignToId = tasks.AssignedToId;
+                var previousTaskValue = new PreviousTaskValueDto
+                {
+                    EHours = tasks.EstimateHours,
+                    RHours = tasks.RemainingHours,
+                    Description = tasks.Description,
+                    TaskType = tasks.TaskType,
+                    TaskStatus = tasks.Status,
+                    ParentId = tasks.ParentId,
+                    Parent = tasks.ParentId != null ? await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == tasks.ParentId) : null,
+                    SprintId = tasks.SprintId,
+                    Sprint = tasks.SprintId != null ? await _dbContext.Sprints.FirstOrDefaultAsync(s => s.Id == tasks.SprintId) : null,
+                    AssignToId = tasks.AssignedToId,
+                    AssignTo = tasks.AssignedToId != null ? await _dbContext.Employees.FirstOrDefaultAsync(e => e.Id == tasks.AssignedToId) : null
+                };
+
                 // if valid task found checking accessibility 
                 // Who can access the task : 
                 // -- a user who has assigned task
@@ -645,257 +958,21 @@ namespace ManagementAPI.Provider.Services
                 // -- or the manager of the user whom the task has been assigned 
                 // all the above have the access the update the task
 
-                int checkAccess = await CheckTaskAccess(Role, tasks, AccessingId, project);
+                int checkAccess = await CheckTaskAccess(JwtService.UserRole, tasks, JwtService.UserId, project); // returns 1 if task is accessible
                 if (checkAccess < 0)
                 {
                     return checkAccess;
                 }
 
-                // if task is accessible
-                // if user want to task type ->parent id is needed expect if task type is epic
-                if (dto.type != null)
+                // if task is accessible updating task according to given details 
+                int updated = await UpdateTaskDetails(tasks, dto, project.Id); // returns 1 if successfully updated 
+                if (updated < 0)
                 {
-                    if (dto.type == TaskTypes.Epic)
-                    {
-                        tasks.TaskType = TaskTypes.Epic;
-                        tasks.ParentId = null;
-                    }
-                    else
-                    {
-                        var type = (TaskTypes)dto.type;
-                        int ParentId = Convert.ToInt32(dto.ParentId);
-                        if (dto.ParentId != null)
-                        {
-                            int checkTaskLevel = await checkTaskHeirarchy(tasks.Id, type, ParentId, project.Id);
-                            if (checkTaskLevel < 0)
-                            {
-                                return checkTaskLevel;
-                            }
-                        }
-                        tasks.ParentId = dto.ParentId;
-                        tasks.TaskType = (TaskTypes)dto.type;
-                    }
+                    return updated;
                 }
 
-                // checking if user want to update estimated and remaining hours or not 
-                // if yes giving checks that remaining hours must be less than estimated hours
-                if (dto.EstimateHours != null && dto.RemainingHours != null)
-                {
-                    if (dto.RemainingHours > dto.EstimateHours)
-                    {
-                        return -11;
-                    }
-                    tasks.EstimateHours = Convert.ToInt32(dto.EstimateHours);
-                    tasks.RemainingHours = Convert.ToInt32(dto.RemainingHours);
-                }
-                else if (dto.EstimateHours != null)
-                {
-                    if (dto.EstimateHours < tasks.RemainingHours)
-                    {
-                        return -11;
-                    }
-                    tasks.EstimateHours = Convert.ToInt32(dto.EstimateHours);
-
-                }
-                else if (dto.RemainingHours != null)
-                {
-                    if (dto.RemainingHours > tasks.EstimateHours)
-                    {
-                        return -11;
-                    }
-                    tasks.RemainingHours = Convert.ToInt32(dto.RemainingHours);
-
-                }
-                if (dto.Description != null)
-                {
-                    tasks.Description = dto.Description;
-                }
-                // if user want to update parent tasks
-                if (dto.type == null && dto.ParentId != null)
-                {
-                    var parentTask = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == dto.ParentId && t.IsActive);
-
-                    if (parentTask == null)
-                    {
-                        return -12;
-                    }
-                    var checkTaskLevel = await checkTaskHeirarchy(tasks.Id, tasks.TaskType, parentTask.Id, project.Id);
-                    if (checkTaskLevel < 0)
-                    {
-                        return checkTaskLevel;
-                    }
-                    tasks.ParentId = parentTask.Id;
-                }
-                int status = Convert.ToInt32(dto.Status);
-                if (status == 0)
-                {
-                    tasks.Status = TasksStatus.Pending;
-                }
-                else if (status == 1)
-                {
-                    tasks.Status = TasksStatus.Running;
-                }
-
-                else
-                {
-                    tasks.Status = TasksStatus.Completed;
-                }
-                if (dto.SprintId != null)
-                {
-                    var sprint = await _dbContext.Sprints.Where(s => s.Id == dto.SprintId && s.ProjectId == tasks.ProjectId).FirstOrDefaultAsync();
-                    if (sprint == null)
-                    {
-                        return -13;
-                    }
-                    tasks.SprintId = sprint.Id;
-                }
-                if (dto.AssignTo != null)
-                {
-                    var assignTo = await _dbContext.Employees.Where(e => e.Id == dto.AssignTo).FirstOrDefaultAsync();
-                    if (assignTo == null)
-                    {
-                        return -14;
-                    }
-                    var checkProjectMember = await _dbContext.ProjectEmployees.FirstOrDefaultAsync(p => p.ProjectID == project.Id && p.EmployeeID == assignTo.Id);
-                    if (checkProjectMember == null)
-                    {
-                        return -14;
-                    }
-                    tasks.AssignedToId = assignTo.Id;
-                }
-
-                //
-                //
                 // Adding Logs for changes
-                if (previousEHours != tasks.EstimateHours)
-                {
-                    var log = new Log
-                    {
-                        TaskId = tasks.Id,
-                        Message = $" {Accessor.Name} Changed Estimated Hours from {previousEHours} to {tasks.EstimateHours} "
-                    };
-                    _dbContext.Logs.Add(log);
-                }
-                if (previousRHours != tasks.RemainingHours)
-                {
-                    var log = new Log
-                    {
-                        TaskId = tasks.Id,
-                        Message = $" {Accessor.Name} Changed Remaining Hours from {previousRHours} to {tasks.RemainingHours} "
-                    };
-                    _dbContext.Logs.Add(log);
-                }
-                if (previousTaskType != tasks.TaskType)
-                {
-                    var log = new Log
-                    {
-                        TaskId = tasks.Id,
-                        Message = $" {Accessor.Name} Changed Task Type from {previousTaskType.ToString()}  to {tasks.TaskType.ToString()}"
-                    };
-                    _dbContext.Logs.Add(log);
-                }
-                var UpdatedParent = await _dbContext.Taasks.FirstOrDefaultAsync(t => t.Id == tasks.ParentId);
-                if (previousParentId != tasks.ParentId)
-                {
-
-                    if (PreviousParent != null)
-                    {
-                        var log = new Log
-                        {
-                            TaskId = tasks.Id,
-                            Message = $" {Accessor.Name} Changed Parent Task from {PreviousParent.Id} : {PreviousParent.Name} to {UpdatedParent.Id}" +
-                            $": {UpdatedParent.Name} "
-                        };
-                        _dbContext.Logs.Add(log);
-
-                    }
-                    else
-                    {
-
-                        var log = new Log
-                        {
-                            TaskId = tasks.Id,
-                            Message = $" {Accessor.Name} Added Parent Task  {UpdatedParent.Id}" +
-                            $": {UpdatedParent.Name} "
-                        };
-                        _dbContext.Logs.Add(log);
-
-                    }
-                    {
-                        var log = new Log
-                        {
-                            TaskId = tasks.Id,
-                            Message = $" {Accessor.Name} Added Child Task {tasks.Id} : {tasks.Name}" +
-                            $" in {UpdatedParent.Id} " +
-                                $": {UpdatedParent.Name} "
-                        };
-                        _dbContext.Logs.Add(log);
-                    }
-                }
-                if (previousDescription != tasks.Description)
-                {
-                    var log = new Log
-                    {
-                        TaskId = tasks.Id,
-                        Message = $" {Accessor.Name} Changed Description from {previousDescription}  to {tasks.Description}"
-                    };
-                    _dbContext.Logs.Add(log);
-                }
-                if (previousTaskStatus != tasks.Status)
-                {
-                    var log = new Log
-                    {
-                        TaskId = tasks.Id,
-                        Message = $" {Accessor.Name} Changed Status from {previousTaskStatus.ToString()}  to {tasks.Status.ToString()}"
-                    };
-                    _dbContext.Logs.Add(log);
-                }
-                if (previousAssignToId != tasks.AssignedToId)
-                {
-                    var updatedAssignTo = await _dbContext.Employees.Where(e => e.Id == tasks.AssignedToId).FirstOrDefaultAsync();
-                    if (previousAssignTo != null)
-                    {
-                        var log = new Log
-                        {
-                            TaskId = tasks.Id,
-                            Message = $" {Accessor.Name} Changed AssingTo from {previousAssignToId} : {previousAssignTo.Name} to {updatedAssignTo.Id}" + $": {updatedAssignTo.Name} "
-                        };
-                        _dbContext.Logs.Add(log);
-                    }
-                    else
-                    {
-                        var log = new Log
-                        {
-                            TaskId = tasks.Id,
-                            Message = $" {Accessor.Name} Added AssignTo  {updatedAssignTo.Id}" +
-                            $": {updatedAssignTo.Name} "
-                        };
-                        _dbContext.Logs.Add(log);
-                    }
-                }
-                if (previousSprintId != tasks.SprintId)
-                {
-                    var Updatedsprint = await _dbContext.Sprints.Where(s => s.Id == tasks.SprintId).FirstOrDefaultAsync();
-                    if (previousSprint != null)
-                    {
-                        var log = new Log
-                        {
-                            TaskId = tasks.Id,
-                            Message = $" {Accessor.Name} Changed Sprint from {previousSprintId} : {previousSprint.Name} to {Updatedsprint.Id}" + $": {Updatedsprint.Name} "
-                        };
-                        _dbContext.Logs.Add(log);
-                    }
-                    else
-                    {
-                        var log = new Log
-                        {
-                            TaskId = tasks.Id,
-                            Message = $" {Accessor.Name} Added Srpint  {Updatedsprint.Id}" +
-                            $": {Updatedsprint.Name} "
-                        };
-                        _dbContext.Logs.Add(log);
-                    }
-                }
+                bool logs = await AddLog(tasks, previousTaskValue);
                 await _dbContext.SaveChangesAsync();
                 return tasks.Id;
             }
@@ -904,14 +981,19 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
-        public async Task<bool> DeleteTasks(int id, int AccessingId, EmployeeRole role)
+        public async Task<bool> DeleteTasks(int id)
         {
             try
             {
                 var tasks = await _dbContext.Taasks.FirstOrDefaultAsync(e => e.Id == id);
-                if (tasks == null || !tasks.IsActive) return false;
-                if (tasks.AssignedById != AccessingId && role != EmployeeRole.SuperAdmin) return false;
-
+                if (tasks == null || !tasks.IsActive)
+                {
+                    return false;
+                }
+                if (tasks.AssignedById != JwtService.UserId && JwtService.UserRole != EmployeeRole.SuperAdmin)
+                {
+                    return false;
+                }
                 tasks.IsActive = false;
                 _dbContext.SaveChanges();
                 return true;
@@ -922,7 +1004,54 @@ namespace ManagementAPI.Provider.Services
             }
 
         }
-        public async Task<List<GetTaskByIdDto>?> GetTaskById(int assigneToId)
+        
+        /*public IQueryable<GetTaskDto>? ApplySorting(IQueryable<GetTaskDto>? tasks, string? SortBy,
+            bool IsAscending)
+        {
+            if (string.IsNullOrEmpty(SortBy) == false)
+            {
+                if (SortBy.Equals("Name", StringComparison.OrdinalIgnoreCase))
+                {
+
+                    tasks = IsAscending ? tasks.OrderBy(e => e.Name) : tasks.OrderByDescending(e => e.Name);
+
+                }
+                if (SortBy.Equals("CreatedOn", StringComparison.OrdinalIgnoreCase))
+                {
+                    tasks = IsAscending ? tasks.OrderBy(e => e.CreatedOn) :
+                    tasks.OrderByDescending(e => e.CreatedOn);
+
+                }
+                if (SortBy.Equals("Status", StringComparison.OrdinalIgnoreCase))
+                {
+                    tasks = IsAscending ? tasks.OrderBy(e => e.Status) :
+                        tasks.OrderByDescending(e => e.Status);
+                }
+
+                if (SortBy.Equals("Type", StringComparison.OrdinalIgnoreCase))
+                {
+                    tasks = IsAscending ? tasks.OrderBy(e => e.Type) :
+                        tasks.OrderByDescending(e => e.Type);
+                }
+                if (SortBy.Equals("AssignedBy", StringComparison.OrdinalIgnoreCase))
+                {
+                    tasks = IsAscending ? tasks.OrderBy(e => e.AssignedById) :
+                        tasks.OrderByDescending(e => e.AssignedById);
+                }
+                if (SortBy.Equals("AssingedTo", StringComparison.OrdinalIgnoreCase))
+                {
+                    tasks = IsAscending ? tasks.OrderBy(e => e.AssignedToId) :
+                        tasks.OrderByDescending(e => e.AssignedToId);
+                }
+
+
+
+            }
+            return tasks;
+        }
+*/
+
+        /*public async Task<List<GetTaskByIdDto>?> GetTaskById(int assigneToId)
         {
             try
             {
@@ -948,92 +1077,6 @@ namespace ManagementAPI.Provider.Services
             {
                 throw ex;
             }
-        }
-
-        public async Task<(int, List<GetTaskDto>?)> getTasks(int projectId, int taskId, bool children)
-        {
-            try
-            {
-
-                List<GetTaskDto>? resultTasks = new List<GetTaskDto>();
-                var project = await _dbContext.Projects.Where(p => p.Id == projectId).FirstOrDefaultAsync();
-                if (project == null)
-                {
-                    return (-1, null);
-                }
-                var tasks = await _dbContext.Taasks.Where(t => t.Id == taskId && t.ProjectId == projectId).FirstOrDefaultAsync();
-
-                if (tasks == null)
-                {
-                    return (-2, null);
-                }
-
-                int count = 0;
-                var type = tasks.TaskType;
-                var toFindType = new TaskTypes();
-                bool flag = true;
-                var query = _dbContext.Taasks.Where(t => t.ProjectId == projectId)
-                            .Select(t => new GetTaskDto
-                            {
-                                Id = t.Id,
-                                Name = t.Name,
-                                Description = t.Description,
-                                AssignedById = t.AssignedById,
-                                AssignedToId = t.AssignedToId,
-                                Assigned_From = t.AssignedBy.Name,
-                                Assigned_To = t.AssignedTo.Name,
-                                CreatedOn = t.CreatedOn,
-                                ParentId = t.ParentId,
-                                ProjectId = t.ProjectId,
-                                Status = t.Status,
-                                Type = t.TaskType,
-                            }).AsQueryable();
-                count = resultTasks.Count;
-
-                if (children && type != TaskTypes.Task && type != TaskTypes.Bugs) // want children
-                {
-                    toFindType = (TaskTypes)(Convert.ToInt32(type) + 1);
-                    if (type != TaskTypes.UserStory)
-                    {
-                        query = query.Where(t => t.Type == toFindType);
-                        flag = false;
-
-                    }
-                    else
-                    {
-                        query = query.Where(t => t.Type == toFindType || t.Type == TaskTypes.Bugs);
-                        flag = false;
-                    }
-                }
-                else if (children == false && type != TaskTypes.Epic)// want parent
-                {
-
-                    toFindType = (TaskTypes)(Convert.ToInt32(type) - 1);
-                    if (type == TaskTypes.Task || type == TaskTypes.Bugs)
-                    {
-                        query = query.Where(t => t.Type == TaskTypes.UserStory);
-                        flag = false;
-                    }
-                    else
-                    {
-                        query = query.Where(t => t.Type == toFindType);
-                        flag = false;
-                    }
-                }
-                if (flag)
-                {
-                    return (0, null);
-                }
-                resultTasks = await query.ToListAsync();
-                count = query.Count();
-                return (count, resultTasks);
-
-
-            }
-            catch (Exception ex)
-            {
-                throw ex;
-            }
-        }
+        }*/
     }
 }

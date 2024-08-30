@@ -41,11 +41,11 @@ public class Tasks : BaseEntity
     public int EstimateHours { get; set; } = 0;
     public int RemainingHours { get; set; } = 0;
     public virtual ICollection<TasksReview> Reviews { get; set; }
-
+   /* public Employee Creator;
     [ForeignKey(nameof(CreatedBy))]
-    public Employee Creator;
-    [ForeignKey(nameof(UpdatedBy))]
     public Employee Updater;
+    [ForeignKey(nameof(UpdatedBy))]*/
+   
     
     public Employee AssignedBy;
     public Employee AssignedTo;

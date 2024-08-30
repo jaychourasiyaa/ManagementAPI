@@ -13,14 +13,12 @@ namespace ManagementAPI.Contract.Interfaces
 {
     public interface ITasksServices
     {
-        public Task<(int,List<GetTaskDto>?)> GetAllTasks(EmployeeRole Role , int assignedTo, TaskPaginatedDto dto);
-        public Task<int> AddTasks(AddTasksDtos dtos, int assignedBy);       
-        public Task<int> UpdateTasks(UpdateTasksDto dto, int id, int AccessingId, EmployeeRole Role);
-        public Task<List<GetTaskByIdDto>?> GetTaskById(int assigneToId);
-
-        public Task<bool> DeleteTasks(int id ,int AccessingId, EmployeeRole Role);
-
-        public Task<(int, List<GetTaskDto>?)> getTasks(int  projectId, int TaskId , bool children);
+        //public Task<List<GetTaskByIdDto>?> GetTaskById(int assigneToId);
+        public Task<(int,List<GetTaskDto>?)> GetAllTasks(TaskPaginatedDto dto);
+        public Task<(int, List<GetTaskDto>?)> GetParentChildTask(int projectId, int TaskId, bool children);
+        public Task<int> AddTasks(AddTasksDtos dtos);       
+        public Task<int> UpdateTasks(UpdateTasksDto dto, int id);
+        public Task<bool> DeleteTasks(int id );
         public  Task<bool> CheckManagerOfEmployee(int managerId, int? employeeId);
         public  Task<bool> CheckTeamMemberOfProject(int Member1Id, int? Member2Id, int ProjectId);
         public  Task<int> CheckTaskAccess(EmployeeRole Role, Tasks tasks, int AccessingId, Project project);
