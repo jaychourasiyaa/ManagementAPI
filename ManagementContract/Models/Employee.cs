@@ -15,16 +15,11 @@ public class Employee : BaseEntity
 {
    
     public int Id { get; set; }
-  
     public required string Name { get; set; }
-  
     public required decimal Salary { get; set; }
     public EmployeeRole Role { get; set; } = EmployeeRole.Employee;
-   
     public required string Username { get; set; }
     public required string Password { get; set; }
-
-
     public Employee Creator { get; set; }
 
     [ForeignKey(nameof(CreatedBy))]
@@ -36,11 +31,7 @@ public class Employee : BaseEntity
     public Department Department { get; set; }
     [ForeignKey(nameof(DepartmentId))]
     public int? DepartmentId { get; set; }
-    
-    
     public bool IsActive { get; set; } = true;
-    /*public DateTime CreatedAt { get; set; } = DateTime.Now;
-    public DateTime ? UpdateAt { get; set; }*/
     public virtual ICollection<ProjectEmployee> ProjectEmployees { get; set; }
 
 }

@@ -1,4 +1,4 @@
-﻿using Azure;
+﻿/*using Azure;
 using ManagementAPI.Contract.Dtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Responses;
@@ -50,7 +50,7 @@ namespace ManagementAPI.Controllers
             var response = new ApiRespones<List<GetAttendenceDto?>>();
             try
             {
-                var attendence = await attendenceServices.getAttendenceList(id);
+                var attendence = await attendenceServices.GetAttendenceList(id);
                 if (attendence == null)
                 {
                     response.Message = "Attendence Not found Check employee Id";
@@ -71,3 +71,4 @@ namespace ManagementAPI.Controllers
         }
     }
 }
+*/

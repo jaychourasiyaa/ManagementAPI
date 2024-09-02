@@ -1,4 +1,4 @@
-﻿using ManagementAPI.Contract.Dtos;
+﻿using ManagementAPI.Contract.Dtos.AuthorizationDtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Models;
 using ManagementAPI.Contract.Responses;
@@ -16,13 +16,10 @@ namespace ManagementAPI.Provider.Services
     public class AuthServices : IAuthServices
     {
         private readonly dbContext _dbContext;
-
         private readonly IConfiguration configuration;
-
         public AuthServices(dbContext db, IConfiguration iconfig)
         {
             _dbContext = db;
-
             configuration = iconfig;
         }
         public string GenerateToken( Employee employee)

@@ -19,6 +19,7 @@ using ManagementAPI.Contract.Dtos.EmployeeDtos;
 using ManagementAPI.Contract.Enums;
 using System.Data;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
+using ManagementAPI.Contract.Dtos.ProjectDtos;
 
 
 namespace ManagementAPI.Provider.Services
@@ -121,7 +122,7 @@ namespace ManagementAPI.Provider.Services
             }
             return employee;
         }
-        public bool checkAlreadyExists(int employeeId, int projectId)
+        public bool CheckAlreadyExists(int employeeId, int projectId)
         {
             var employee = _dbContext.ProjectEmployees.FirstOrDefault(e => e.ProjectID == projectId
              && e.EmployeeID == employeeId);
@@ -440,7 +441,7 @@ namespace ManagementAPI.Provider.Services
                 throw new Exception(ex.Message);
             }
         }
-        public async Task<int?> UpdateProject(int projectId, AddProjectDto dto, int updatedBy)
+        public async Task<int?> UpdateProject(int projectId, AddProjectDto dto)
         {
             try
             {
@@ -465,7 +466,7 @@ namespace ManagementAPI.Provider.Services
                     if (employeeIdExists)
                     {
                         // if employee already exists in project not adding hiim
-                        bool checkAlreadyExist = checkAlreadyExists(employeeId, projectId);
+                        bool checkAlreadyExist = CheckAlreadyExists(employeeId, projectId);
                         if (!checkAlreadyExist)
                         {
                             var projectemployee = new ProjectEmployee
@@ -481,7 +482,7 @@ namespace ManagementAPI.Provider.Services
                 project.Name = dto.Name;
                 project.Description = dto.Description;
                 project.UpdatedOn = DateTime.Now;
-                project.UpdatedBy = updatedBy;
+                project.UpdatedBy = JwtService.UserId;
                 project.Status = dto.Status;
                 await _dbContext.SaveChangesAsync();
                 return project.Id;

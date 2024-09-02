@@ -1,4 +1,4 @@
-﻿using ManagementAPI.Contract.Interfaces;
+﻿/*using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Provider.Database;
 using System;
 using System.Collections.Generic;
@@ -88,3 +88,4 @@ namespace ManagementAPI.Provider.Services
         }
     }
 }
+*/

@@ -1,4 +1,4 @@
-﻿using ManagementAPI.Contract.Dtos;
+﻿using ManagementAPI.Contract.Dtos.SprintDtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Models;
 using ManagementAPI.Provider.Database;

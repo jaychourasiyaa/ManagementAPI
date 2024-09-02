@@ -1,4 +1,4 @@
-﻿using ManagementAPI.Contract.Dtos;
+﻿/*using ManagementAPI.Contract.Dtos.AttendenceDtos;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,7 +12,8 @@ namespace ManagementAPI.Contract.Interfaces
        
 
         public Task<int> AttendenceAdd(AddAttendenceDtos adtos);
-        public Task<List<GetAttendenceDto>> getAttendenceList(int id);
+        public Task<List<GetAttendenceDto>> GetAttendenceList(int id);
 
     }
 }
+*/

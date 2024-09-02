@@ -18,9 +18,11 @@ namespace ManagementAPI.Provider.Services
     public class EmployeeServices : IEmployeeServices
     {
         private readonly dbContext _dbcontext;
-        public EmployeeServices(dbContext db)
+        private readonly IJwtService JwtService;
+        public EmployeeServices(dbContext db ,IJwtService jwtservice)
         {
             _dbcontext = db;
+            JwtService = jwtservice;
         }
         public IQueryable<GetEmployeeDto>? ApplyFilering(IQueryable<GetEmployeeDto>? employee, string? filterOn,
             string? filterQuery ,DateTime ? startDate, DateTime ? endDate)
@@ -195,7 +197,7 @@ namespace ManagementAPI.Provider.Services
                 throw new Exception(ex.Message);
             }
         }
-        public async Task AssignDepartmentandManager(Employee employee, AddEmployeeDtos addemployeeDto)
+        public async Task AssignDepartmentandManager(Employee employee, AddEmployeeDto addemployeeDto)
         {
             try
             {
@@ -257,7 +259,7 @@ namespace ManagementAPI.Provider.Services
                 throw new Exception(ex.Message);
             }
         }
-        public async Task<int> CheckInputDetails(AddEmployeeDtos addemployeeDto, int? employeeId)
+        public async Task<int> CheckInputDetails(AddEmployeeDto addemployeeDto, int? employeeId)
         {
 
 
@@ -330,136 +332,11 @@ namespace ManagementAPI.Provider.Services
             }
             return 1;
         }
-        public async Task<int> AddEmployee(AddEmployeeDtos addemployeeDto, int createdBy)
+        public async Task<(int, List<GetEmployeeDto>)> GetAllEmployee(PaginatedGetDto PDto)
         {
             try
             {
-                //check input details 
-                int checkInputDetails = await CheckInputDetails(addemployeeDto, null);
 
-                // if input details is incorrect
-                if (checkInputDetails < 0)
-                    return checkInputDetails;
-
-
-                Employee employee = new Employee
-                {
-                    Name = addemployeeDto.Name,
-                    Salary = addemployeeDto.Salary,
-                    Role = addemployeeDto.Role,
-                    Username = addemployeeDto.Username,
-                    Password = addemployeeDto.Password,
-                    CreatedBy = createdBy
-                };
-
-                //checking if Manager Id given if of role SuperAdmin
-                var SuperAdmin = await _dbcontext.Employees.FirstOrDefaultAsync(e => e.Id == addemployeeDto.AdminId && e.Role == EmployeeRole.SuperAdmin);
-
-                // if Role is SuperAdmin no need to check manager
-                if (SuperAdmin != null)
-                {
-                    employee.AdminId = SuperAdmin.Id;
-                    employee.DepartmentId = addemployeeDto.DepartmentId;
-                }
-                else
-                {
-                    // assigning managerId and departmentId according to conditon
-                    await AssignDepartmentandManager(employee, addemployeeDto);
-                }
-
-                await _dbcontext.Employees.AddAsync(employee);
-                await _dbcontext.SaveChangesAsync();
-                return employee.Id;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
-        }
-
-        public async Task<int> UpdateEmployee(AddEmployeeDtos addemployeeDto, int id, int updatedBy)
-        {
-            try
-            {
-                var employee = await _dbcontext.Employees.FindAsync(id);
-
-                // checking if the employee exists in database or not 
-                if (employee == null || !employee.IsActive)
-                {
-                    return -6;
-                }
-
-                //checking input details
-                int checkInputDetails = await CheckInputDetails(addemployeeDto, id);
-
-                //if input details is incorrect returing 
-                if (checkInputDetails < 0)
-                {
-                    return checkInputDetails;
-                }
-
-                employee.Name = addemployeeDto.Name;
-                employee.Salary = addemployeeDto.Salary;
-                employee.Role = addemployeeDto.Role;
-                employee.UpdatedBy = updatedBy;
-                employee.UpdatedOn = DateTime.Now;
-                employee.Username = addemployeeDto.Username;
-                employee.Password = addemployeeDto.Password;
-                employee.UpdatedOn = DateTime.Now;
-
-                //checking if Manager Id given if of role SuperAdmin
-                var SuperAdmin = await _dbcontext.Employees
-                       .FirstOrDefaultAsync(e => e.Id == addemployeeDto.AdminId && e.Role == EmployeeRole.SuperAdmin);
-
-                // if Role is SuperAdmin no need to check Manager
-                if (SuperAdmin != null)
-                {
-                    employee.DepartmentId = addemployeeDto.DepartmentId;
-                    employee.AdminId = SuperAdmin.Id;
-                }
-                else
-                {
-                    // condition = A person can only become manager of employee if both 
-                    //             employee and manager has same department 
-
-                    // assigning managerId and departmentId according to above conditon
-                    await AssignDepartmentandManager(employee, addemployeeDto);
-                }
-                await _dbcontext.SaveChangesAsync();
-                var updatedemployee = employee;
-                return 1;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
-        }
-        public async Task<bool> DeleteEmployee(int id, int deletedBy)
-        {
-            // deleting employee making it isactive status to false
-            try
-            {
-
-                var employee = await _dbcontext.Employees
-                    .Where(e => e.Id == id && e.IsActive == true)
-                    .FirstOrDefaultAsync();
-
-                if (employee == null || !employee.IsActive) return false;
-                employee.UpdatedOn = DateTime.Now;
-                employee.UpdatedBy = deletedBy;
-                employee.IsActive = false;
-                await _dbcontext.SaveChangesAsync();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
-        }
-        public async Task<(int, List<GetEmployeeDto>)> GetAllEmployee(EmployeeRole Role, int managerId, PaginatedGetDto PDto)
-        {
-            try
-            {
                 string? filterOn = "";
                 if (PDto.filterOn.Equals("Role", StringComparison.OrdinalIgnoreCase))
 
@@ -472,7 +349,7 @@ namespace ManagementAPI.Provider.Services
                 bool IsAscending = PDto.IsAscending;
                 int pageNumber = PDto.pageNumber <= 0 ? 1 : PDto.pageNumber;
                 int pageSize = PDto.pageSize <= 0 ? 10 : PDto.pageSize;
-                DateTime ? startDate = PDto.startDate;
+                DateTime? startDate = PDto.startDate;
                 DateTime? endDate = PDto.endDate;
 
                 // fetching details of all employee present in database
@@ -491,15 +368,15 @@ namespace ManagementAPI.Provider.Services
                         DepartmentId = e.DepartmentId,
                         AdminName = e.Admin != null ? e.Admin.Name : null,
                         CreatedBy = e.Creator.Name,
-                       
-                        
+
+
                     }).AsQueryable();
                 int count = await employee.CountAsync();
-
+                int managerId = JwtService.UserId;
 
                 // if employee role is  superadmin showing him all employee
                 // else applying role based data filtering
-                if (Role != EmployeeRole.SuperAdmin)
+                if (JwtService.UserRole != EmployeeRole.SuperAdmin)
                 {
                     employee = employee.Where(e => e.AdminId == managerId);
                     count = await employee.CountAsync();
@@ -514,7 +391,7 @@ namespace ManagementAPI.Provider.Services
                 }
 
                 // Filtering
-                employee = ApplyFilering(employee, filterOn, filterQuery,startDate,endDate);
+                employee = ApplyFilering(employee, filterOn, filterQuery, startDate, endDate);
                 //
 
                 //Sorting 
@@ -612,38 +489,6 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
-
-
-        public async Task<List<IdandNameDto>> GetDeletedEmployee()
-        {
-            var employees = await _dbcontext.Employees
-                .Where(e => e.IsActive == false)
-                .Select(e => new IdandNameDto
-                {
-                    Id = e.Id,
-                    Name = e.Name,
-
-
-                }).ToListAsync();
-            if (employees == null) return null;
-            return employees;
-        }
-        public async Task<bool> ReactivateEmployee(int id)
-        {
-            var employee = await _dbcontext.Employees.Where(e => e.Id == id).FirstOrDefaultAsync();
-            if (employee == null) return false;
-            employee.IsActive = true;
-            _dbcontext.SaveChanges();
-            return true;
-        }
-        public async Task<bool> ReactivateDepartment(int id)
-        {
-            var department = await _dbcontext.Department.Where(d => d.Id == id).FirstOrDefaultAsync();
-            if (department == null) return false;
-            department.IsActive = true;
-            _dbcontext.SaveChanges();
-            return true;
-        }
         public async Task<int?> GetCountRoleWise(int role)
         {
             int? count = 0;
@@ -671,6 +516,163 @@ namespace ManagementAPI.Provider.Services
             }
             return count;
         }
+        public async Task<int> AddEmployee(AddEmployeeDto addemployeeDto)
+        {
+            try
+            {
+                //check input details 
+                int checkInputDetails = await CheckInputDetails(addemployeeDto, null);
+
+                // if input details is incorrect
+                if (checkInputDetails < 0)
+                    return checkInputDetails;
+
+
+                Employee employee = new Employee
+                {
+                    Name = addemployeeDto.Name,
+                    Salary = addemployeeDto.Salary,
+                    Role = addemployeeDto.Role,
+                    Username = addemployeeDto.Username,
+                    Password = addemployeeDto.Password,
+                    CreatedBy = JwtService.UserId
+                };
+
+                //checking if Manager Id given if of role SuperAdmin
+                var SuperAdmin = await _dbcontext.Employees.FirstOrDefaultAsync(e => e.Id == addemployeeDto.AdminId && e.Role == EmployeeRole.SuperAdmin);
+
+                // if Role is SuperAdmin no need to check manager
+                if (SuperAdmin != null)
+                {
+                    employee.AdminId = SuperAdmin.Id;
+                    employee.DepartmentId = addemployeeDto.DepartmentId;
+                }
+                else
+                {
+                    // assigning managerId and departmentId according to conditon
+                    await AssignDepartmentandManager(employee, addemployeeDto);
+                }
+
+                await _dbcontext.Employees.AddAsync(employee);
+                await _dbcontext.SaveChangesAsync();
+                return employee.Id;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+        public async Task<int> UpdateEmployee(AddEmployeeDto addemployeeDto, int id)
+        {
+            try
+            {
+                var employee = await _dbcontext.Employees.FindAsync(id);
+
+                // checking if the employee exists in database or not 
+                if (employee == null || !employee.IsActive)
+                {
+                    return -6;
+                }
+
+                //checking input details
+                int checkInputDetails = await CheckInputDetails(addemployeeDto, id);
+
+                //if input details is incorrect returing 
+                if (checkInputDetails < 0)
+                {
+                    return checkInputDetails;
+                }
+
+                employee.Name = addemployeeDto.Name;
+                employee.Salary = addemployeeDto.Salary;
+                employee.Role = addemployeeDto.Role;
+                employee.UpdatedBy = JwtService.UserId;
+                employee.UpdatedOn = DateTime.Now;
+                employee.Username = addemployeeDto.Username;
+                employee.Password = addemployeeDto.Password;
+                employee.UpdatedOn = DateTime.Now;
+
+                //checking if Manager Id given if of role SuperAdmin
+                var SuperAdmin = await _dbcontext.Employees
+                       .FirstOrDefaultAsync(e => e.Id == addemployeeDto.AdminId && e.Role == EmployeeRole.SuperAdmin);
+
+                // if Role is SuperAdmin no need to check Manager
+                if (SuperAdmin != null)
+                {
+                    employee.DepartmentId = addemployeeDto.DepartmentId;
+                    employee.AdminId = SuperAdmin.Id;
+                }
+                else
+                {
+                    // condition = A person can only become manager of employee if both 
+                    //             employee and manager has same department 
+
+                    // assigning managerId and departmentId according to above conditon
+                    await AssignDepartmentandManager(employee, addemployeeDto);
+                }
+                await _dbcontext.SaveChangesAsync();
+                var updatedemployee = employee;
+                return 1;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+        public async Task<bool> DeleteEmployee(int id)
+        {
+            // deleting employee making it isactive status to false
+            try
+            {
+
+                var employee = await _dbcontext.Employees
+                    .Where(e => e.Id == id && e.IsActive == true)
+                    .FirstOrDefaultAsync();
+
+                if (employee == null || !employee.IsActive) return false;
+                employee.UpdatedOn = DateTime.Now;
+                employee.UpdatedBy = JwtService.UserId;
+                employee.IsActive = false;
+                await _dbcontext.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+        
+        /* public async Task<List<IdandNameDto>> GetDeletedEmployee()
+         {
+             var employees = await _dbcontext.Employees
+                 .Where(e => e.IsActive == false)
+                 .Select(e => new IdandNameDto
+                 {
+                     Id = e.Id,
+                     Name = e.Name,
+
+
+                 }).ToListAsync();
+             if (employees == null) return null;
+             return employees;
+         }
+         public async Task<bool> ReactivateEmployee(int id)
+         {
+             var employee = await _dbcontext.Employees.Where(e => e.Id == id).FirstOrDefaultAsync();
+             if (employee == null) return false;
+             employee.IsActive = true;
+             _dbcontext.SaveChanges();
+             return true;
+         }
+         public async Task<bool> ReactivateDepartment(int id)
+         {
+             var department = await _dbcontext.Department.Where(d => d.Id == id).FirstOrDefaultAsync();
+             if (department == null) return false;
+             department.IsActive = true;
+             _dbcontext.SaveChanges();
+             return true;
+         }*/
+
 
 
     }

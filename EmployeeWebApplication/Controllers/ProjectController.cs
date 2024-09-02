@@ -1,5 +1,6 @@
 ﻿using Employee_Role;
 using ManagementAPI.Contract.Dtos;
+using ManagementAPI.Contract.Dtos.ProjectDtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Models;
 using ManagementAPI.Contract.Responses;
@@ -110,7 +111,6 @@ namespace ManagementAPI.Controllers
             var responses = new ApiRespones<int?>();
             try
             {
-                
                 int projectId = await projectServices.AddProject(projectDto);
                 
                 if (projectId == -1)
@@ -152,9 +152,7 @@ namespace ManagementAPI.Controllers
             var respones = new ApiRespones<int?>();
             try
             {
-                int updatedBy = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
-                
-                var result = await projectServices.UpdateProject(projectId, dto, updatedBy);
+                var result = await projectServices.UpdateProject(projectId, dto);
                 if( result ==-1 )
                 {
                     respones.Message = "Project not exist";

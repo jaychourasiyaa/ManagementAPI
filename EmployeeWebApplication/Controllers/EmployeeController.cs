@@ -31,7 +31,6 @@ namespace ManagementAPI.Contract
             employeeServices = eServices;
         }
 
-        //Getting details of all Employees
         [Authorize]
         [HttpPost("GetAllEmployee")]
         public async Task<ActionResult<PaginatedApiRespones<List<GetEmployeeDto?>>>> Get(PaginatedGetDto PDto)
@@ -39,15 +38,8 @@ namespace ManagementAPI.Contract
             var response = new PaginatedApiRespones<List<GetEmployeeDto?>>();
             try
             {
-                EmployeeRole Role = EmployeeRole.Employee;
-                var RoleClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-                int managerId = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
-                if (Enum.TryParse(typeof(EmployeeRole), RoleClaim, true, out var RoleEnum))
-                {
-                    Role = (EmployeeRole)RoleEnum;
-                }
-               
-                (int,List<GetEmployeeDto?>) employees = await employeeServices.GetAllEmployee(Role, managerId, PDto);
+                // calling service to get employee 
+                (int,List<GetEmployeeDto?>) employees = await employeeServices.GetAllEmployee( PDto);
 
                 if (employees.Item2== null)
                 {
@@ -68,16 +60,94 @@ namespace ManagementAPI.Contract
 
             }
         }
+
+        [HttpGet("GetBy/{id}")]
+        public async Task<ActionResult<ApiRespones<GetByIdDto?>>> GetById(int id)
+        {
+            var response = new ApiRespones<GetByIdDto?>();
+            try
+            {
+                var employee = await employeeServices.GetDetailsById(id);
+
+                if (employee == null)
+                {
+                    response.Message = "Employee Details not found";
+                    return NotFound(response);
+                }
+                response.Message = "Employees Details Fetched";
+                response.Data = employee;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Message = ex.Message;
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("GetAllManagers")]
+        [Authorize(Roles = "SuperAdmin")]
+        public async Task<ActionResult<ApiRespones<List<GetEmployeeDto>?>>> GetManagers()
+        {
+            var response = new ApiRespones<List<GetEmployeeDto>?>();
+            try
+            {
+
+                var result = await employeeServices.GetAllManagers();
+                if (result == null)
+                {
+                    response.Message = "No Managers Found";
+                    return NotFound(response);
+                }
+                response.Message = "All Managers Fetched";
+                response.Data = result;
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpPost("getCount")]
+        public async Task<ActionResult<ApiRespones<int?>>> getCount(int role)
+        {
+            var response = new ApiRespones<int?>();
+            try
+            {
+                var result = await employeeServices.GetCountRoleWise(role);
+                if (result == null)
+                {
+                    response.Message = "Invalid Role given";
+                    response.Data = null;
+                    return NotFound(response);
+                }
+                response.Message = "Fetched count with given role";
+                response.Data = result;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                response.Data = null;
+                return BadRequest(response);
+            }
+        }
+
         [Authorize(Roles = "SuperAdmin")]
         [HttpPost("AddEmployee")]
-        public async Task<ActionResult<ApiRespones<int?>>> Add(AddEmployeeDtos empDto) 
+        public async Task<ActionResult<ApiRespones<int?>>> Add(AddEmployeeDto empDto) 
         {
             var response = new ApiRespones<int?>();
             try
             {
 
-                var createdBy = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
-                int employeeId = await employeeServices.AddEmployee(empDto, createdBy);
+                
+                int employeeId = await employeeServices.AddEmployee(empDto);
                 
                 if (employeeId == -1)
                 {
@@ -120,15 +190,16 @@ namespace ManagementAPI.Contract
                 return BadRequest(response);
             }
         }
+
         [Authorize(Roles = "SuperAdmin")]
         [HttpPut("UpdateBy/{id}")]
-        public async Task<ActionResult<ApiRespones<int?>>> Update(int id, AddEmployeeDtos empDto)
+        public async Task<ActionResult<ApiRespones<int?>>> Update(int id, AddEmployeeDto empDto)
         {
             var response = new ApiRespones<int?>();
-            var updatedBy = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
+            
             try
             {
-                int IdtoBeUpdated = await employeeServices.UpdateEmployee(empDto, id, updatedBy);
+                int IdtoBeUpdated = await employeeServices.UpdateEmployee(empDto, id);
 
                  if (IdtoBeUpdated == -1)
                 {
@@ -176,15 +247,16 @@ namespace ManagementAPI.Contract
 
 
         }
+
         [Authorize(Roles = "SuperAdmin")]
         [HttpDelete("DeleteBy/{id}")]
         public async Task<ActionResult<ApiRespones<bool?>>> Delete(int id)
         {
             var response = new ApiRespones<bool?>();
-            int deletedBy = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
+            
             try
             {
-                bool Deleted = await employeeServices.DeleteEmployee(id, deletedBy);
+                bool Deleted = await employeeServices.DeleteEmployee(id);
 
                 if (!Deleted)
                 {
@@ -206,57 +278,8 @@ namespace ManagementAPI.Contract
 
 
         }
-        [HttpGet("GetBy/{id}")]
-        public async Task<ActionResult<ApiRespones<GetByIdDto?>>> GetById(int id)
-        {
-            var response = new ApiRespones<GetByIdDto?>();
-            try
-            {
-                var employee = await employeeServices.GetDetailsById(id);
 
-                if (employee == null)
-                {
-                    response.Message = "Employee Details not found";
-                    return NotFound(response);
-                }
-                response.Message = "Employees Details Fetched";
-                response.Data = employee;
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                response.Success = false;
-                response.Message = ex.Message;
-                return BadRequest(ex.Message);
-            }
-        }
-        [HttpGet("GetAllManagers")]
-        [Authorize(Roles = "SuperAdmin")]
-        public async Task<ActionResult<ApiRespones<List<GetEmployeeDto>?>>> GetManagers()
-        {
-            var response = new ApiRespones<List<GetEmployeeDto>?>();
-            try
-            {
-
-                var result = await employeeServices.GetAllManagers();
-                if (result == null)
-                {
-                    response.Message = "No Managers Found";
-                    return NotFound(response);
-                }
-                response.Message = "All Managers Fetched";
-                response.Data = result;
-             
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                response.Success = false;
-                response.Message = ex.Message;
-                return BadRequest(response);
-            }
-        }
-        [HttpGet("GetDeletedEmployees")]
+        /*[HttpGet("GetDeletedEmployees")]
         public async Task<ActionResult<ApiRespones<List<IdandNameDto>>>> GetDeleted()
         {
             var respones = new ApiRespones<List<IdandNameDto>>();
@@ -279,7 +302,7 @@ namespace ManagementAPI.Contract
                 respones.Message = ex.Message;
                 return BadRequest(respones);
             }
-        }
+        }*/
         /*[HttpPost("ReActivate")]
         public  async Task<ActionResult<ApiRespones<bool>>> Reactive(int id)
         {
@@ -302,30 +325,5 @@ namespace ManagementAPI.Contract
                 return BadRequest(response);
             }
         }*/
-        [HttpPost("getCount")]
-        public async Task<ActionResult<ApiRespones<int?>>> getCount( int role)
-        {
-            var response = new ApiRespones<int?>();
-            try
-            {
-                var result = await employeeServices.GetCountRoleWise(role);
-                if( result == null)
-                {
-                    response.Message = "Invalid Role given";
-                    response.Data = null;
-                    return NotFound(response);
-                }
-                response.Message = "Fetched count with given role";
-                response.Data = result;
-                return Ok(response);
-            }
-            catch(Exception ex)
-            {
-                response.Message=ex.Message;
-                response.Data = null;
-                return BadRequest(response);
-            }
-        }
-        
     }
 }

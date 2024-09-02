@@ -1,4 +1,4 @@
-﻿using ManagementAPI.Contract.Dtos;
+﻿using ManagementAPI.Contract.Dtos.LogDtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Responses;
 using Microsoft.AspNetCore.Authorization;

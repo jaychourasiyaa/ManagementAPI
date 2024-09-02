@@ -1,4 +1,4 @@
-﻿using ManagementAPI.Contract.Dtos;
+﻿using ManagementAPI.Contract.Dtos.AuthorizationDtos;
 using ManagementAPIEmployee;
 using System;
 using System.Collections.Generic;

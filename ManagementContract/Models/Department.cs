@@ -17,5 +17,4 @@ public class Department : BaseEntity
 
     [ForeignKey(nameof(CreatedBy))]
     public Employee Employee { get; set; }
-   /* public DateTime CreatedAt { get; set; } = DateTime.Now;*/
 }

@@ -1,5 +1,5 @@
 ﻿using Employee_Role;
-using ManagementAPI.Contract.Dtos;
+using ManagementAPI.Contract.Dtos.TasksDtos;
 using ManagementAPI.Contract.Models;
 using ManagementAPI.Contract.Responses;
 using System;
@@ -16,7 +16,7 @@ namespace ManagementAPI.Contract.Interfaces
         //public Task<List<GetTaskByIdDto>?> GetTaskById(int assigneToId);
         public Task<(int,List<GetTaskDto>?)> GetAllTasks(TaskPaginatedDto dto);
         public Task<(int, List<GetTaskDto>?)> GetParentChildTask(int projectId, int TaskId, bool children);
-        public Task<int> AddTasks(AddTasksDtos dtos);       
+        public Task<int> AddTasks(AddTasksDto dtos);       
         public Task<int> UpdateTasks(UpdateTasksDto dto, int id);
         public Task<bool> DeleteTasks(int id );
         public  Task<bool> CheckManagerOfEmployee(int managerId, int? employeeId);

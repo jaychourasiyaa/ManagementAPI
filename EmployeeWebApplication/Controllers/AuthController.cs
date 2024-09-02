@@ -1,4 +1,5 @@
 ﻿using ManagementAPI.Contract.Dtos;
+using ManagementAPI.Contract.Dtos.AuthorizationDtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Responses;
 using ManagementAPI.Provider.Database;
@@ -24,7 +25,7 @@ namespace ManagementAPI.Controllers
         
         [HttpPost]
         [Route ( "Login")]
-        public async Task<ActionResult<ApiRespones<TokenEmployeeDto?>>> Login( CredentialsDto dto)
+        public async Task<ActionResult<ApiRespones<LoginResponseDto?>>> Login( CredentialsDto dto)
         {
             var response = new ApiRespones <LoginResponseDto?>();
             try

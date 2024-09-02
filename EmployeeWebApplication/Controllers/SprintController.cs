@@ -1,4 +1,4 @@
-﻿using ManagementAPI.Contract.Dtos;
+﻿using ManagementAPI.Contract.Dtos.SprintDtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Responses;
 using Microsoft.AspNetCore.Http;
@@ -16,6 +16,30 @@ namespace ManagementAPI.Controllers
         {
             this.SprintServices = sprintservices;
         }
+        [HttpGet("{id}")]
+        public async Task<ActionResult<ApiRespones<List<GetSprintDto>?>>> Get(int id)
+        {
+            var respones = new ApiRespones<List<GetSprintDto>?>();
+            try
+            {
+                var sprints = await SprintServices.GetSprintUnderProject(id);
+                if (sprints == null || sprints.Count == 0)
+                {
+                    respones.Message = "No Sprints Found with that Project Id";
+                    return NotFound(respones);
+                }
+                respones.Message = "All Sprints Fetched";
+                respones.Data = sprints;
+                return Ok(respones);
+            }
+            catch (Exception ex)
+            {
+                respones.Message = ex.Message;
+                respones.Success = false;
+                return BadRequest(respones);
+            }
+        }
+
         [HttpPost]
         public async Task<ActionResult<ApiRespones<int?>>> Upsert(AddSprintDto dto , int ? toBeUpdated )
         {
@@ -56,28 +80,6 @@ namespace ManagementAPI.Controllers
                 return BadRequest(respones);   
             }
         }
-        [HttpGet("{id}")]
-        public async Task<ActionResult<ApiRespones<List<GetSprintDto>?>>> Get( int id)
-        {
-            var respones = new ApiRespones<List<GetSprintDto>?>();
-            try
-            {
-                var sprints = await SprintServices.GetSprintUnderProject( id);    
-                if (sprints == null || sprints.Count ==0 )
-                {
-                    respones.Message = "No Sprints Found with that Project Id";
-                    return NotFound(respones);
-                }
-                respones.Message = "All Sprints Fetched";
-                respones.Data = sprints;
-                return Ok(respones);
-            }
-            catch( Exception ex)
-            {
-                respones.Message = ex.Message;
-                respones.Success= false;
-                return BadRequest(respones);    
-            }
-        }
+        
     }
 }

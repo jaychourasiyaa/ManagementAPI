@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Immutable;
 using System.ComponentModel;
 using Taask_status;
+using ManagementAPI.Contract.Dtos.DepartmentDtos;
 namespace ManagementAPI.Provider.Services
 {
     public class DepartmentServices : IDepartmentServices
@@ -114,7 +115,43 @@ namespace ManagementAPI.Provider.Services
                 throw new Exception ( ex.Message);
             }
         }
-        public async Task<int> AddDepartment(AddDepartmentDtos addDepartmentDtos , int createdBy)
+        public async Task<List<IdandNameDto>?> GetEmployeeDetails(int id)
+        {
+            // funtion returns the employee department wise
+            try
+            {
+                // checking if department exists or not
+                var department = await _dbContext.Department.FirstOrDefaultAsync(e => e.Id == id);
+
+                // if not exists return null
+                if (department == null || !department.IsActive) return null;
+
+                //fetching all employee for that department
+                var employee = await _dbContext.Employees.
+                    Where(e => e.IsActive == true && e.DepartmentId == id).Select(e => new IdandNameDto
+                    {
+                        Id = e.Id,
+                        Name = e.Name,
+                    }).ToListAsync();
+
+                // if no employee exists returning null
+                if (employee.Count == 0) return null;
+                return employee;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+        public async Task<IdandNameDto> GetDepartmentById(int id)
+        {
+            var department = await _dbContext.Department
+                .Where(d => d.Id == id && d.IsActive)
+                .Select(d => new IdandNameDto { Id = id, Name = d.Name }).FirstOrDefaultAsync();
+            if (department == null) return null;
+            return department;
+        }
+        public async Task<int> AddDepartment(AddDepartmentDto addDepartmentDtos , int createdBy)
         {
             try
             {
@@ -160,6 +197,37 @@ namespace ManagementAPI.Provider.Services
                 return true;
             }*/
         }
+        public async Task<int?> UpdateDepartment(IdandNameDto dto, int updatedBy)
+        {
+            var department = await _dbContext.Department
+                .Where(d => d.Id == dto.Id)
+                .FirstOrDefaultAsync();
+            if (department == null)
+            {
+                return -1;
+            }
+            var alreadyExistsDept = await _dbContext.Department.Where(e => e.Name == dto.Name.ToUpper()).FirstOrDefaultAsync();
+
+
+            // if department already exists 
+            if (alreadyExistsDept != null && alreadyExistsDept.IsActive == true && alreadyExistsDept.Id != dto.Id)
+            {
+                return -2;
+            }
+
+            // updating department
+            if (department != null)
+            {
+                department.Name = dto.Name.ToUpper();
+                department.IsActive = true;
+                department.UpdatedOn = DateTime.Now;
+                department.UpdatedBy = updatedBy;
+                await _dbContext.SaveChangesAsync();
+
+            }
+            return department.Id;
+
+        }
         public async Task<bool> DeleteDepartment( int id , int deletedBy)
         {
             try
@@ -178,67 +246,10 @@ namespace ManagementAPI.Provider.Services
                 throw new Exception(ex.Message);
             }
         }
-        // get employee deparment wise
-        public async Task<List<IdandNameDto>?> GetEmployeeDetails( int id)
-        {
-            // funtion returns the employee department wise
-            try
-            {
-                // checking if department exists or not
-                var department = await _dbContext.Department.FirstOrDefaultAsync(e => e.Id == id);
-
-                // if not exists return null
-                if (department == null || !department.IsActive) return null;
-
-                //fetching all employee for that department
-                var employee = await _dbContext.Employees.
-                    Where(e => e.IsActive == true && e.DepartmentId == id).Select(e => new IdandNameDto
-                    {
-                        Id = e.Id,
-                        Name = e.Name,
-                    }).ToListAsync();
-
-                // if no employee exists returning null
-                if (employee.Count ==0) return null;
-                return employee;
-            }
-            catch (Exception ex) 
-            { 
-                throw new Exception(ex.Message); 
-            }
-        }
-        public async Task<int?> UpdateDepartment( IdandNameDto dto ,int updatedBy)
-        {
-            var department = await _dbContext.Department
-                .Where( d=> d.Id == dto.Id )
-                .FirstOrDefaultAsync();
-            if( department == null)
-            {
-                return -1;
-            }
-            var alreadyExistsDept = await _dbContext.Department.Where(e => e.Name == dto.Name.ToUpper()).FirstOrDefaultAsync();
-
-
-            // if department already exists 
-            if (alreadyExistsDept != null && alreadyExistsDept.IsActive == true && alreadyExistsDept.Id != dto.Id)
-            {
-                return -2; 
-            }
-
-        // updating department
-            if (department != null)
-            {
-                department.Name = dto.Name.ToUpper();
-                department.IsActive = true;
-                department.UpdatedOn = DateTime.Now;
-                department.UpdatedBy = updatedBy;
-                await _dbContext.SaveChangesAsync();
-                
-            }
-            return department.Id;
-
-        }
-        public async Task<List<IdandNameDto>?> GetDeletedDepartment()
+       
+        
+      
+        /*public async Task<List<IdandNameDto>?> GetDeletedDepartment()
         {
             var departments = await _dbContext.Department
                 .Where(d => d.IsActive == false)
@@ -250,23 +261,16 @@ namespace ManagementAPI.Provider.Services
             if (departments == null)
                 return null;
             return departments;
-        }
-        public async Task<bool> ReactivateDepartment(int id)
+        }*/
+        /*public async Task<bool> ReactivateDepartment(int id)
         {
             var department = await _dbContext.Department.Where(d => d.Id == id).FirstOrDefaultAsync();
             if (department == null) return false;
             department.IsActive = true;
             _dbContext.SaveChanges();
             return true;
-        }
-        public async Task<IdandNameDto> GetDepartmentById(int id)
-        {
-            var department = await _dbContext.Department
-                .Where(d => d.Id == id && d.IsActive)
-                .Select( d => new IdandNameDto {  Id = id , Name = d.Name}).FirstOrDefaultAsync();
-            if (department == null) return null;
-            return department;
-        }
+        }*/
+        
 
     }
 }

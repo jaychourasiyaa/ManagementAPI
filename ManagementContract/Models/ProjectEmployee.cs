@@ -10,11 +10,8 @@ namespace ManagementAPI.Contract.Models
 {
     public class ProjectEmployee
     {
-        
-
         public int ProjectID { get; set; }
         [ForeignKey(nameof(ProjectID))]
-       
         public Project Project { get; set; }
         public int EmployeeID { get; set; }
         [ForeignKey(nameof(EmployeeID))]

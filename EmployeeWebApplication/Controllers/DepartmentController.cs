@@ -1,4 +1,5 @@
 ﻿using ManagementAPI.Contract.Dtos;
+using ManagementAPI.Contract.Dtos.DepartmentDtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Responses;
 using ManagementAPI.Provider.Database;
@@ -24,6 +25,30 @@ namespace ManagementAPI.Controllers
 
         }
 
+        [HttpGet]
+        [Authorize(Roles = "SuperAdmin")]
+        public async Task<ActionResult<IdandNameDto>> Get(int id)
+        {
+            var respones = new ApiRespones<IdandNameDto>();
+            try
+            {
+                var result = await departmentServices.GetDepartmentById(id);
+                if (result == null)
+                {
+                    respones.Message = "Department not exist";
+                    return NotFound(respones);
+                }
+                respones.Data = result;
+                respones.Message = "Department Fetched ";
+                return Ok(respones);
+            }
+            catch (Exception ex)
+            {
+                respones.Message = ex.Message;
+                respones.Success = false;
+                return BadRequest(respones);
+            }
+        }
 
         [HttpPost("GetallDepartments")]
         public async Task<ActionResult<PaginatedApiRespones<List<GetDepartmentDtos>?>>> Get(PaginatedGetDto dto)
@@ -52,10 +77,40 @@ namespace ManagementAPI.Controllers
 
             }
         }
+
+        [HttpGet("GetEmployeesUnderDepartment/{id}")]
+        [Authorize(Roles = "SuperAdmin")]
+        public async Task<ActionResult<ApiRespones<List<IdandNameDto>?>>> GetEmployoeesUnderDepartment(int id)
+        {
+            var response = new ApiRespones<List<IdandNameDto>?>();
+            try
+            {
+                List<IdandNameDto>? employees = await departmentServices.GetEmployeeDetails(id);
+
+                if (employees == null)
+                {
+
+                    response.Message = "No Employees Found (Check Department Id)";
+                    return NotFound(response);
+                }
+
+                response.Message = "Fetched All Employees";
+                response.Data = employees;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Message = ex.Message;
+                return BadRequest(response);
+
+            }
+
+        }
+
         [HttpPost]
         [Authorize(Roles = "SuperAdmin")]
-
-        public async Task<ActionResult<ApiRespones<int?>>> Add(AddDepartmentDtos Dto)
+        public async Task<ActionResult<ApiRespones<int?>>> Add(AddDepartmentDto Dto)
         {
 
 
@@ -89,69 +144,6 @@ namespace ManagementAPI.Controllers
 
             }
         }
-        [HttpDelete("{id}")]
-        [Authorize(Roles = "SuperAdmin")]
-
-        public async Task<ActionResult<ApiRespones<bool?>>> Delete(int id)
-        {
-            var response = new ApiRespones<bool?>();
-            int deletedBy = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id").Value);
-            try
-            {
-                bool deleted = await departmentServices.DeleteDepartment(id, deletedBy);
-
-                if (!deleted)
-                {
-
-                    response.Message = "Department not found";
-                    response.Data = false;
-                    return NotFound(response);
-                }
-
-
-                response.Message = "Department Deleted";
-                response.Data = deleted;
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                response.Success = false;
-                response.Message = ex.Message;
-                return BadRequest(response);
-
-            }
-        }
-        [HttpGet("GetEmployeesUnderDepartment/{id}")]
-        [Authorize(Roles = "SuperAdmin")]
-
-        public async Task<ActionResult<ApiRespones<List<IdandNameDto>?>>> GetEmployoeesUnderDepartment(int id)
-        {
-            var response = new ApiRespones<List<IdandNameDto>?>();
-            try
-            {
-                List<IdandNameDto>? employees = await departmentServices.GetEmployeeDetails(id);
-
-                if (employees == null)
-                {
-
-                    response.Message = "No Employees Found (Check Department Id)";
-                    return NotFound(response);
-                }
-
-                response.Message = "Fetched All Employees";
-                response.Data = employees;
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                response.Success = false;
-                response.Message = ex.Message;
-                return BadRequest(response);
-
-            }
-
-        }
-
 
         [HttpPut()]
         [Authorize(Roles = "SuperAdmin")]
@@ -183,10 +175,42 @@ namespace ManagementAPI.Controllers
                 return BadRequest(respones);
             }
         }
-        [HttpGet("GetDeletedDepartment")]
-        [Authorize(Roles = "SuperAdmin")]
 
-        public async Task<ActionResult<ApiRespones<List<IdandNameDto>?>>> GetDltDepartment()
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "SuperAdmin")]
+        public async Task<ActionResult<ApiRespones<bool?>>> Delete(int id)
+        {
+            var response = new ApiRespones<bool?>();
+            int deletedBy = int.Parse(User.Claims.FirstOrDefault(c => c.Type == "Id").Value);
+            try
+            {
+                bool deleted = await departmentServices.DeleteDepartment(id, deletedBy);
+
+                if (!deleted)
+                {
+
+                    response.Message = "Department not found";
+                    response.Data = false;
+                    return NotFound(response);
+                }
+
+
+                response.Message = "Department Deleted";
+                response.Data = deleted;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Message = ex.Message;
+                return BadRequest(response);
+
+            }
+        }
+
+        
+
+        /* public async Task<ActionResult<ApiRespones<List<IdandNameDto>?>>> GetDltDepartment()
         {
             var respones = new ApiRespones<List<IdandNameDto>?>();
             try
@@ -208,29 +232,7 @@ namespace ManagementAPI.Controllers
                 return BadRequest(respones);
             }
         }
-        [HttpGet("GetDepartmentBy{id}")]
-        public async Task<ActionResult<IdandNameDto>> Get(int id)
-        {
-            var respones = new ApiRespones<IdandNameDto>();
-            try
-            {
-                var result = await departmentServices.GetDepartmentById(id);
-                if( result == null )
-                {
-                    respones.Message = "Department not exist";
-                    return NotFound(respones);
-                }
-                respones.Data = result;
-                respones.Message = "Department Fetched ";
-                return Ok(respones);
-            }
-            catch( Exception ex )
-            {
-                respones.Message = ex.Message;
-                respones.Success = false;
-                return BadRequest(respones);
-            }
-        }
+        [HttpGet("GetDepartmentBy{id}")]*/
         /*[HttpPost("ReActivate")]
         public async Task<ActionResult<ApiRespones<bool>>> Reactive(int id)
         {

@@ -1,4 +1,4 @@
-﻿using Azure;
+﻿/*using Azure;
 using ManagementAPI.Contract.Dtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Responses;
@@ -25,7 +25,7 @@ namespace ManagementAPI.Controllers
             var response = new ApiRespones<List<DateTime>?>();
             try
             {
-                var salarydates = await salaryServices.getById(id);
+                var salarydates = await salaryServices.GetById(id);
                
                 if (salarydates == null)
                 {
@@ -77,3 +77,4 @@ namespace ManagementAPI.Controllers
         }
     }
 }
+*/

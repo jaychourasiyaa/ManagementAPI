@@ -6,7 +6,6 @@ using System.Text;
 using System.Threading.Tasks;
 using ManagementAPI.Provider.Database;
 using TasksReviewAPI;
-using ManagementAPI.Contract.Dtos;
 using System.ComponentModel;
 using Microsoft.EntityFrameworkCore;
 using ManagementAPIEmployee;
@@ -14,6 +13,7 @@ using Employee_Role;
 using Microsoft.Identity.Client;
 using Taask_status;
 using ManagementAPI.Contract.Models;
+using ManagementAPI.Contract.Dtos.TaskReviewDtos;
 namespace ManagementAPI.Provider.Services
 {
     public class TaskReviewServices : ITaskReviewServices

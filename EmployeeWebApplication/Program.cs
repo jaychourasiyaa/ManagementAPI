@@ -18,7 +18,6 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-
         builder.Services.AddCors(o => o.AddPolicy("MyPolicy", builder =>
         {
             builder.AllowAnyOrigin()
@@ -26,7 +25,6 @@ public class Program
                    .AllowAnyHeader();
 
         }));
-
 
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(option =>
@@ -43,7 +41,6 @@ public class Program
         };
     });
 
-
         //// Add role-based authorization
         builder.Services.AddAuthorization(options =>
         {
@@ -58,6 +55,7 @@ public class Program
 
         builder.Services.AddControllers();
         builder.Services.AddHttpContextAccessor();
+
         // Add services to the container.bearer
         builder.Services.AddDbContext<dbContext>(options =>
         options.UseSqlServer(builder.Configuration.GetConnectionString("connectionString")));
@@ -66,27 +64,24 @@ public class Program
         builder.Services.AddScoped<IDepartmentServices, DepartmentServices>();
         builder.Services.AddScoped<ITasksServices, TasksService>();
         builder.Services.AddScoped<ITaskReviewServices, TaskReviewServices>();
-        builder.Services.AddScoped<IAttendenceServices, AttendenceServices>();
-        builder.Services.AddScoped<ISalaryServices, SalaryServies>();
         builder.Services.AddScoped<IProjectServices, ProjectServices>();
         builder.Services.AddScoped<IAuthServices, AuthServices>();
-        builder.Services.AddScoped<IPaginatedService,PaginatedServices>();
         builder.Services.AddScoped<ISprintServices, SprintServices>();
         builder.Services.AddScoped<ILoggerServices, LoggerServices>();
         builder.Services.AddScoped<IJwtService, JwtService>();
         builder.Services.AddSingleton<ISortingService, SortingService>();
 
+        //builder.Services.AddScoped<IPaginatedService,PaginatedServices>();
+        //builder.Services.AddScoped<IAttendenceServices, AttendenceServices>();
+        //builder.Services.AddScoped<ISalaryServices, SalaryServies>();
+
         //builder.Services.AddScoped<IHttpContextAccessor, HttpContextAccessor>();
         //it is architecture of httpaccessor to be a register and resolved as singleton it will give you error cause it is registerd as singleton and resolved as scope , to avoid that error only use singleton or make a custome scoped register which is not recommended
         //builder.Services.AddScoped<IHttpContextAccessor, CustomHttpContextAccessor>(); //still not working
 
-
-
-
         // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
-        //
         builder.Services.AddSwaggerGen(opt =>
         {
             opt.SwaggerDoc("v1", new OpenApiInfo { Title = "EmployeeManagementAPI", Version = "v1" });
@@ -117,27 +112,19 @@ public class Program
             opt.OperationFilter<CustomHeaderSwaggerAttribute>();
 
         });
-        //
         
-
         var app = builder.Build();
         // Configure the HTTP request pipeline.
         //app.UseDeveloperExceptionPage();
         app.UseCors("MyPolicy");
-
         app.UseSwagger();
         app.UseSwaggerUI();
         app.UseDeveloperExceptionPage();
         app.UseHttpsRedirection();
-       
         app.UseAuthentication();
         app.UseRouting();
         app.UseAuthorization();
-
-
-        
         app.MapControllers();
-
         app.Run();
 
     }

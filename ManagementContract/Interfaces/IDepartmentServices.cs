@@ -1,4 +1,5 @@
 ﻿using ManagementAPI.Contract.Dtos;
+using ManagementAPI.Contract.Dtos.DepartmentDtos;
 using ManagementAPIDepartment;
 using System;
 using System.Collections.Generic;
@@ -13,12 +14,13 @@ namespace ManagementAPI.Contract.Interfaces
        
     {
         public Task<List<GetDepartmentDtos>?> GetDepartment(PaginatedGetDto dto);
-        public Task<int> AddDepartment(AddDepartmentDtos departmentDtos , int createdBy);
-        public Task<bool> DeleteDepartment(int id , int deletedBy);
         public Task<List<IdandNameDto>?> GetEmployeeDetails(int id);
-        public  Task<int?> UpdateDepartment(IdandNameDto dto, int updatedBy);
-        public Task<List<IdandNameDto>?> GetDeletedDepartment();
         public Task<IdandNameDto> GetDepartmentById(int id);
-        public Task<bool> ReactivateDepartment(int id);
+        public Task<int> AddDepartment(AddDepartmentDto departmentDtos , int createdBy);
+        public Task<int?> UpdateDepartment(IdandNameDto dto, int updatedBy);
+        public Task<bool> DeleteDepartment(int id , int deletedBy);
+
+        /*public Task<List<IdandNameDto>?> GetDeletedDepartment();
+        public Task<bool> ReactivateDepartment(int id);*/
     }
 }

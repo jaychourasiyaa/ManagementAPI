@@ -1,4 +1,4 @@
-﻿using ManagementAPI.Contract.Dtos;
+﻿using ManagementAPI.Contract.Dtos.LogDtos;
 using System;
 using System.Collections.Generic;
 using System.Linq;

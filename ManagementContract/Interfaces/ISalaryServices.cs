@@ -1,4 +1,4 @@
-﻿using ManagementAPI.Contract.Dtos;
+﻿/*using ManagementAPI.Contract.Dtos.SalaryDtos;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +9,8 @@ namespace ManagementAPI.Contract.Interfaces
 {
     public interface ISalaryServices
     {
-        public Task< List<DateTime>> getById(int id);
-        public Task<int> TakeAdvance(SalaryDtos dtos);
+        public Task< List<DateTime>> GetById(int id);
+        public Task<int> TakeAdvance(SalaryDto dtos);
     }
 }
+*/

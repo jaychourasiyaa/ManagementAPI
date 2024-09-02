@@ -1,6 +1,6 @@
 ﻿using Azure;
 using Employee_Role;
-using ManagementAPI.Contract.Dtos;
+using ManagementAPI.Contract.Dtos.TasksDtos;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Contract.Responses;
 using ManagementAPI.Provider.Database;
@@ -58,7 +58,7 @@ public class TasksController : ControllerBase
     }
 
     [HttpPost("GetParentChildren")]
-    public async Task<ActionResult<PaginatedApiRespones<List<GetTaskDto>?>>> GetTask(GetParentChildrenTask dto)
+    public async Task<ActionResult<PaginatedApiRespones<List<GetTaskDto>?>>> GetTask(GetParentChildrenTaskDto dto)
     {
         var respones = new PaginatedApiRespones<List<GetTaskDto>?>();
         try
@@ -93,7 +93,7 @@ public class TasksController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<ApiRespones<int?>>> Add(AddTasksDtos dto)
+    public async Task<ActionResult<ApiRespones<int?>>> Add(AddTasksDto dto)
     {
         var response = new ApiRespones<int?>();
         try

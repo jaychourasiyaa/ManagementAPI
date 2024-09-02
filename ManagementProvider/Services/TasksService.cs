@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using ManagementAPI.Contract.Interfaces;
 using ManagementAPI.Provider.Database;
 using TasksAPI;
-using ManagementAPI.Contract.Dtos;
 using Microsoft.EntityFrameworkCore;
 using ManagementAPIEmployee;
 using ManagementAPI.Provider.Migrations;
@@ -25,6 +24,7 @@ using System.Runtime.Versioning;
 using System.ComponentModel.DataAnnotations;
 using System.Data;
 using System.Net.Http.Headers;
+using ManagementAPI.Contract.Dtos.TasksDtos;
 namespace ManagementAPI.Provider.Services
 {
     public class TasksService : ITasksServices
@@ -157,7 +157,7 @@ namespace ManagementAPI.Provider.Services
             if (manager == null) return false;
             return true;
         }
-        public async Task<int> checkTaskHeirarchy(int? taskId, TaskTypes type, int ParentId, int ProjectId)
+        public async Task<int> CheckTaskHeirarchy(int? taskId, TaskTypes type, int ParentId, int ProjectId)
         {
             try
             {
@@ -225,7 +225,7 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
-        public async Task<int> CheckInputDetails(AddTasksDtos dtos, int assignedBy)
+        public async Task<int> CheckInputDetails(AddTasksDto dtos, int assignedBy)
         {
             try
             {
@@ -306,7 +306,7 @@ namespace ManagementAPI.Provider.Services
                 {
                     // checking for the heirarchy creiteria of task with
                     int ParentId = Convert.ToInt32(dtos.ParentId);
-                    int checkTaskLevel = await checkTaskHeirarchy(null, dtos.type, ParentId, project.Id);
+                    int checkTaskLevel = await CheckTaskHeirarchy(null, dtos.type, ParentId, project.Id);
                     if (checkTaskLevel < 0)
                     {
                         return checkTaskLevel;
@@ -406,7 +406,7 @@ namespace ManagementAPI.Provider.Services
                         //if parent id given then it should follow task heirarcy rule
                         if (dto.ParentId != null)
                         {
-                            int checkTaskLevel = await checkTaskHeirarchy(tasks.Id, type, ParentId, projectId);
+                            int checkTaskLevel = await CheckTaskHeirarchy(tasks.Id, type, ParentId, projectId);
                             if (checkTaskLevel < 0)
                             {
                                 return checkTaskLevel;
@@ -464,7 +464,7 @@ namespace ManagementAPI.Provider.Services
                     }
 
                     //check task level rule
-                    var checkTaskLevel = await checkTaskHeirarchy(tasks.Id, tasks.TaskType, parentTask.Id, projectId);
+                    var checkTaskLevel = await CheckTaskHeirarchy(tasks.Id, tasks.TaskType, parentTask.Id, projectId);
                     if (checkTaskLevel < 0)
                     {
                         return checkTaskLevel;
@@ -660,13 +660,13 @@ namespace ManagementAPI.Provider.Services
                     if (type == TaskTypes.UserStory)
                     {
                         // if task type is userstory then children can be both normal task or bugs
-                        query = query.Where(t => t.Type == toFindType || t.Type == TaskTypes.Bugs);
+                        query = query.Where(t => (t.Type == toFindType || t.Type == TaskTypes.Bugs) && t.ParentId != taskId);
                         flag = false;
                     }
                     else
                     {
                         toFindType = (TaskTypes)(Convert.ToInt32(type) + 1); // in heirarchy child is one level down 
-                        query = query.Where(t => t.Type == toFindType);
+                        query = query.Where(t => t.Type == toFindType && t.ParentId != taskId);
                         flag = false;
 
                     }
@@ -679,13 +679,13 @@ namespace ManagementAPI.Provider.Services
                     if (type == TaskTypes.Task || type == TaskTypes.Bugs)
                     {
                         // if type is task or bug task type bugs or normal task both have parent of userstory type
-                        query = query.Where(t => t.Type == TaskTypes.UserStory);
+                        query = query.Where(t => t.Type == TaskTypes.UserStory && t.Id != tasks.ParentId);
                         flag = false;
                     }
                     else
                     {
                         toFindType = (TaskTypes)(Convert.ToInt32(type) - 1); // parent is one level up in heirarchy
-                        query = query.Where(t => t.Type == toFindType);
+                        query = query.Where(t => t.Type == toFindType && t.Id != tasks.ParentId);
                         flag = false;
                     }
                 }
@@ -704,7 +704,7 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
-        public async Task<int> AddTasks(AddTasksDtos dtos)
+        public async Task<int> AddTasks(AddTasksDto dtos)
         {
             try
             {
@@ -973,6 +973,8 @@ namespace ManagementAPI.Provider.Services
 
                 // Adding Logs for changes
                 bool logs = await AddLog(tasks, previousTaskValue);
+                tasks.UpdatedBy = JwtService.UserId;
+                tasks.UpdatedOn = DateTime.Now;
                 await _dbContext.SaveChangesAsync();
                 return tasks.Id;
             }
