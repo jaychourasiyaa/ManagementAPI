@@ -57,6 +57,35 @@ public class TasksController : ControllerBase
         }
     }
 
+    [HttpGet("GetById")]
+    public async Task<ActionResult<ApiRespones<GetTaskByIdDto?>>> GetById(int id)
+    {
+        var respones = new ApiRespones<GetTaskByIdDto?>();
+        try
+        {
+            //calling service that return all tasks rolewise with filtering , sorting , pagination
+            GetTaskByIdDto? result = await tasksService.GetTaskById(id);
+
+            // if not task found 
+            if (result == null)
+            {
+                respones.Message = "No Details Found";
+                return NotFound(respones);
+            }
+
+            // returning fetched details
+            respones.Message = "Details Fetched";
+            respones.Data = result;
+            return Ok(respones);
+        }
+        catch (Exception ex)
+        {
+            respones.Success = false;
+            respones.Message = ex.Message;
+            return BadRequest(respones);
+        }
+    }
+
     [HttpPost("GetParentChildren")]
     public async Task<ActionResult<PaginatedApiRespones<List<GetTaskDto>?>>> GetTask(GetParentChildrenTaskDto dto)
     {

@@ -525,6 +525,36 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
+        public async Task<GetTaskByIdDto?> GetTaskById(int id)
+        {
+            try
+            {
+                var tasks = await _dbContext.Taasks.Where(t => t.Id == id)
+                    .Select(t => new GetTaskByIdDto
+                    {
+                        Name = t.Name,
+                        Assigned_From = t.AssignedBy.Name,
+                        Assigned_To = t.AssignedTo.Name,
+                        CreatedOn = t.CreatedOn,
+                        Description = t.Description,
+                        Status = t.Status,
+                        EstimatedHours = t.EstimateHours,
+                        RemainingHours = t.RemainingHours,
+                        Type = t.TaskType,
+                        Reviews = t.Reviews,
+                    }).FirstOrDefaultAsync();
+                if (tasks == null)
+                {
+                    return null;
+                }
+                return tasks;
+
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
         public async Task<(int, List<GetTaskDto>?)> GetAllTasks(TaskPaginatedDto PDto)
         {
             try
@@ -582,9 +612,9 @@ namespace ManagementAPI.Provider.Services
                 count = await tasks.CountAsync();
 
                 //apply filtering according to type,status,sprint,AssignedTo,assigned,unassigned,date,parenttask
-                
+
                 tasks = ApplyFiltering(tasks, PDto, JwtService.UserId);
-                
+
                 if (tasks == null)
                 {
                     return (0, null);
@@ -1006,7 +1036,7 @@ namespace ManagementAPI.Provider.Services
             }
 
         }
-        
+
         /*public IQueryable<GetTaskDto>? ApplySorting(IQueryable<GetTaskDto>? tasks, string? SortBy,
             bool IsAscending)
         {
