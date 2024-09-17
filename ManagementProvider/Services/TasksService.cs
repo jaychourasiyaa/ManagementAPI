@@ -541,7 +541,7 @@ namespace ManagementAPI.Provider.Services
                         EstimatedHours = t.EstimateHours,
                         RemainingHours = t.RemainingHours,
                         Type = t.TaskType,
-                        Reviews = t.Reviews,
+                        
                     }).FirstOrDefaultAsync();
                 if (tasks == null)
                 {

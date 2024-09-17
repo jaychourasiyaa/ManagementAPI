@@ -49,10 +49,15 @@ namespace ManagementAPI.Controllers
                 var tasksReviewId = await taskReviewServices.AddTaskReview(taskReviewDtos);
                 if (tasksReviewId == -1)
                 {
-                    respones.Message = "Task Id is invalid";
+                    respones.Message = "User Id is invalid";
                     return NotFound(respones);
                 }
-                if (tasksReviewId == -2)
+                else if (tasksReviewId ==-2)
+                {
+                    respones.Message = "Task is Invalid";
+                    return BadRequest(respones);
+                }
+                else if (tasksReviewId <= 0)
                 {
                     respones.Message = "Task is unaccissble";
                     return BadRequest(respones);

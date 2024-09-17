@@ -70,7 +70,7 @@ public class Program
         builder.Services.AddScoped<ILoggerServices, LoggerServices>();
         builder.Services.AddScoped<IJwtService, JwtService>();
         builder.Services.AddSingleton<ISortingService, SortingService>();
-
+        builder.Services.AddTransient<ITestServices, TestServices>();
         //builder.Services.AddScoped<IPaginatedService,PaginatedServices>();
         //builder.Services.AddScoped<IAttendenceServices, AttendenceServices>();
         //builder.Services.AddScoped<ISalaryServices, SalaryServies>();

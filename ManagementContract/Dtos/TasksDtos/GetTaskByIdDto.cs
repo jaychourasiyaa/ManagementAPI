@@ -21,6 +21,6 @@ namespace ManagementAPI.Contract.Dtos.TasksDtos
         public TaskTypes Type { get; set; }
         public int EstimatedHours { get; set; }
         public int RemainingHours { get; set; }
-        public  ICollection<TasksReview> Reviews { get; set; }
+     
     }
 }
