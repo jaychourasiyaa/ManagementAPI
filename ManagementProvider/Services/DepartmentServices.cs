@@ -22,16 +22,18 @@ namespace ManagementAPI.Provider.Services
         {
             _dbContext = db;
         }
-        public IQueryable<GetDepartmentDtos?> ApplyFileringDepartment(IQueryable<GetDepartmentDtos?> department, string? filterOn, string? filterQuery ,DateTime ? startDate, DateTime? endDate)
+        public IQueryable<GetDepartmentDtos?> ApplyFileringDepartment(IQueryable<GetDepartmentDtos?> department, string? filterOn, string? filterQuery ,DateTime ? startDate, DateTime? endDate,ref int count)
         {
             if( startDate != null && endDate != null )
             {
                 department = department.Where( d => d.CreatedOn >= startDate && d.CreatedOn <= endDate );
+                count = department.Count();
             }
             if (string.IsNullOrEmpty(filterQuery) == false)
             {
 
                 department = department.Where(e => e.Name.Contains(filterQuery));
+                count = department.Count();
                 // filer according to name or subpart of name
                 /*if (filterOn.Equals("Name", StringComparison.OrdinalIgnoreCase))
                 {
@@ -69,7 +71,7 @@ namespace ManagementAPI.Provider.Services
             }
             return department;
         }
-        public async Task<List<GetDepartmentDtos>?> GetDepartment(PaginatedGetDto dto)
+        public async Task<(int,List<GetDepartmentDtos>?)> GetDepartment(PaginatedGetDto dto)
         {
             try
             {
@@ -84,7 +86,7 @@ namespace ManagementAPI.Provider.Services
                 DateTime? startDate = dto.startDate;
                 DateTime? endDate = dto.endDate;
                 // getting all department in a list
-
+                int count = 0;
                 var department = _dbContext.Department
                     .Include(e => e.Employee)
                     .Where(e => e.IsActive == true)
@@ -96,19 +98,20 @@ namespace ManagementAPI.Provider.Services
                         CreatedBy_Name = e.Employee.Name
                         
                     }).AsQueryable();
+                count = department.Count();
                 if( dto.filterOn == "" && dto.filterQuery == "" && 
                     dto.SortBy == "" &&  dto.IsAscending == true &&
                     dto.pageNumber == -1 && dto.pageSize == -1 )
                 {
-                    return await department.ToListAsync();
+                    return (count, await department.ToListAsync());
                 }
                 
-                department = ApplyFileringDepartment(department, filterOn, filterQuery ,startDate , endDate);
+                department = ApplyFileringDepartment(department, filterOn, filterQuery ,startDate , endDate , ref count);
                 // Apply Sorting 
                 department = ApplySortingOnDepartment(department, SortBy, IsAscending);
                 // Applying Pagination
                 var skipResult = (pageNumber - 1) * pageSize;
-                return await department.Skip(skipResult).Take(pageSize).ToListAsync();
+                return (count,await department.Skip(skipResult).Take(pageSize).ToListAsync());
             }
             catch (Exception ex)
             {

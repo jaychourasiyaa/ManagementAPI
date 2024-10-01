@@ -16,7 +16,9 @@ namespace ManagementAPI.Contract.Interfaces
         //public Task<List<GetTaskByIdDto>?> GetTaskById(int assigneToId);
         public Task<(int,List<GetTaskDto>?)> GetAllTasks(TaskPaginatedDto dto);
         public Task<GetTaskByIdDto?> GetTaskById(int id);
-        public Task<(int, List<GetTaskDto>?)> GetParentChildTask(int projectId, int TaskId, bool children);
+        public Task<(int, List<GetTaskDto>?)> GetEligibleParentChildTask(int projectId, int TaskId, bool children);
+        public Task<List<GetTaskChildrenDto>> GetTaskChildren(int id);
+
         public Task<int> AddTasks(AddTasksDto dtos);       
         public Task<int> UpdateTasks(UpdateTasksDto dto, int id);
         public Task<bool> DeleteTasks(int id );

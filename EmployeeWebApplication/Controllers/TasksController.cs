@@ -19,10 +19,10 @@ namespace ManagementAPI.Controllers;
 [ApiController]
 public class TasksController : ControllerBase
 {
-   
+
     private readonly ITasksServices tasksService;
     private readonly IJwtService jwtService;
-    public TasksController( ITasksServices tasksservices ,IJwtService jwtservice)
+    public TasksController(ITasksServices tasksservices, IJwtService jwtservice)
     {
         tasksService = tasksservices;
         jwtService = jwtservice;
@@ -34,7 +34,7 @@ public class TasksController : ControllerBase
         try
         {
             //calling service that return all tasks rolewise with filtering , sorting , pagination
-            (int, List<GetTaskDto>?) result = await tasksService.GetAllTasks( dto);
+            (int, List<GetTaskDto>?) result = await tasksService.GetAllTasks(dto);
 
             // if not task found 
             if (result.Item2 == null)
@@ -86,13 +86,13 @@ public class TasksController : ControllerBase
         }
     }
 
-    [HttpPost("GetParentChildren")]
+    [HttpPost("GetEigibleParentChildren")]
     public async Task<ActionResult<PaginatedApiRespones<List<GetTaskDto>?>>> GetTask(GetParentChildrenTaskDto dto)
     {
         var respones = new PaginatedApiRespones<List<GetTaskDto>?>();
         try
         {
-            (int, List<GetTaskDto>?) tasks = await tasksService.GetParentChildTask(dto.ProjectId, dto.TaskId, dto.WantChild);
+            (int, List<GetTaskDto>?) tasks = await tasksService.GetEligibleParentChildTask(dto.ProjectId, dto.TaskId, dto.WantChild);
             if (tasks.Item1 == 0)
             {
                 respones.Message = "No tasks found with given values";
@@ -120,7 +120,29 @@ public class TasksController : ControllerBase
             return BadRequest(respones);
         }
     }
-
+    [HttpGet("GetChildrenTask/{id}")]
+    public async Task<ActionResult<ApiRespones<List<GetTaskChildrenDto>>>> GetChildren(int id)
+    {
+        var response = new ApiRespones<List<GetTaskChildrenDto>>();
+        try
+        {
+            var tasks = await tasksService.GetTaskChildren(id);
+            if (tasks == null)
+            {
+                response.Message = "No Task Found";
+                return NotFound(response);
+            }
+            response.Data = tasks;
+            response.Message = "Fetched all children of a task";
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            response.Success = false;
+            response.Message = ex.Message;
+            return BadRequest(response);
+        }
+    }
     [HttpPost]
     public async Task<ActionResult<ApiRespones<int?>>> Add(AddTasksDto dto)
     {
@@ -202,7 +224,7 @@ public class TasksController : ControllerBase
             return BadRequest(response);
         }
     }
-
+    
     [HttpPut("{id}")]
     public async Task<ActionResult<ApiRespones<int?>>> Update(UpdateTasksDto dto, int id)
     {

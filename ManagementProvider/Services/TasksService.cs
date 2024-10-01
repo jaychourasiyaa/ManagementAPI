@@ -636,7 +636,7 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
-        public async Task<(int, List<GetTaskDto>?)> GetParentChildTask(int projectId, int taskId, bool children)
+        public async Task<(int, List<GetTaskDto>?)> GetEligibleParentChildTask(int projectId, int taskId, bool children)
         {
             try
             {
@@ -734,6 +734,25 @@ namespace ManagementAPI.Provider.Services
                 throw ex;
             }
         }
+        public async Task<List<GetTaskChildrenDto>> GetTaskChildren(int id)
+        {
+            try
+            {
+                var tasks = await _dbContext.Taasks.Where(t => t.ParentId == id).Select(t=>new GetTaskChildrenDto
+                {
+                    Id = t.Id,
+                    Name = t.Name,
+                    Type = t.TaskType,
+                    CreatedOn = t.CreatedOn,
+                }).ToListAsync();
+                return tasks;
+            }
+            catch(Exception ex)
+            {
+                throw ex;
+            }
+        }
+
         public async Task<int> AddTasks(AddTasksDto dtos)
         {
             try

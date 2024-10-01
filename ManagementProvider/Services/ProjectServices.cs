@@ -229,6 +229,7 @@ namespace ManagementAPI.Provider.Services
                 }
 
                 var projectemployees = project.ProjectEmployee
+                    .Where(p => p.IsActive == true)
                     .Select(e => new IdandNameDto
                     {
                         Name = e.Employee.Name,
@@ -245,7 +246,9 @@ namespace ManagementAPI.Provider.Services
                     CreatedOn = project.CreatedOn,
                     Status = project.Status,
                     ProjectEmployee = project.ProjectEmployee
-                    .Select(e => new IdandNameDto { Name = e.Employee.Name, Id = e.Employee.Id }).ToList(),
+                    .Where(e => e.IsActive)
+                    .Select(e => new IdandNameDto { Name = e.Employee.Name, Id = e.Employee.Id })
+                    .ToList(),
                 };
 
                 return projectDetails;
@@ -325,7 +328,6 @@ namespace ManagementAPI.Provider.Services
                     // fetching their project and their downline project if employee is manager
                     projects = _dbContext.Projects
                                  .Include(p => p.ProjectEmployee)
-                                 .ThenInclude(pe => pe.Employee)
                                  .Distinct()
                                  .Where(p => p.ProjectEmployee.Any(pe => employeeUnderManager.Contains(pe.EmployeeID)))
                                   .Select(p => new GetProjectDetailsDto
@@ -376,11 +378,11 @@ namespace ManagementAPI.Provider.Services
             {
                 int createdBy = JwtService.UserId;
                 int checkInput = await CheckInputDetails(addProjectDto);
-                if (checkInput <0)
+                if (checkInput < 0)
                 {
                     return checkInput;
                 }
-                
+
                 /*// checking if the person making project exists in database or not
                 var projectMaker = await _dbContext.Employees
                     .Where(e => e.Id == createdBy)

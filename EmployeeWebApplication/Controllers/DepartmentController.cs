@@ -57,16 +57,16 @@ namespace ManagementAPI.Controllers
             try
             {
                
-                List<GetDepartmentDtos>? department = await departmentServices.GetDepartment(dto);
+                (int,List<GetDepartmentDtos>?) department = await departmentServices.GetDepartment(dto);
 
-                if (department == null)
+                if (department.Item2 == null)
                 {
                     response.Message = "No Department Found";
                     return NotFound(response);
                 }
                 response.Message = "Fetched All Employee";
-                response.Data = department;
-                response.TotalEntriesCount = await _dbContext.Department.Where( d=>d.IsActive).CountAsync();
+                response.Data = department.Item2;
+                response.TotalEntriesCount = department.Item1;
                 return Ok(response);
             }
             catch (Exception ex)

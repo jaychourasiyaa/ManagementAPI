@@ -13,7 +13,7 @@ namespace ManagementAPI.Contract.Interfaces
     public interface IDepartmentServices
        
     {
-        public Task<List<GetDepartmentDtos>?> GetDepartment(PaginatedGetDto dto);
+        public Task<(int,List<GetDepartmentDtos>?)> GetDepartment(PaginatedGetDto dto);
         public Task<List<IdandNameDto>?> GetEmployeeDetails(int id);
         public Task<IdandNameDto> GetDepartmentById(int id);
         public Task<int> AddDepartment(AddDepartmentDto departmentDtos , int createdBy);
